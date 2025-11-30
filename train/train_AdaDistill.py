@@ -10,11 +10,18 @@ from torch.nn.parallel.distributed import DistributedDataParallel
 import torch.utils.data.distributed
 from torch.nn.utils import clip_grad_norm_
 from torch.nn import CrossEntropyLoss
+from torch.utils.tensorboard import SummaryWriter
 from backbones.mobilefacenet import MobileFaceNet
 from utils import losses
 from config.config import config as cfg
 from utils.dataset import MXFaceDataset, DataLoaderX,FaceDatasetFolder
-from utils.utils_callbacks import CallBackVerification, CallBackLogging, CallBackModelCheckpoint
+from utils.utils_callbacks import (
+    CallBackVerification,
+    CallBackLogging,
+    CallBackModelCheckpoint,
+    CallBackIJB,
+    CallBackTinyFace,
+)
 from utils.utils_logging import AverageMeter, init_logging
 
 from backbones.iresnet import iresnet100, iresnet50, iresnet18
@@ -48,13 +55,30 @@ def main(args):
         sampler=train_sampler, num_workers=16, pin_memory=True, drop_last=True)
 
     # create model
+    backbone_t = None
     if cfg.teacher == "iresnet100":
         backbone_t = iresnet100(num_features=cfg.embedding_size, use_se=cfg.SE).to(local_rank)
     elif cfg.teacher == "iresnet50":
         backbone_t = iresnet50(num_features=cfg.embedding_size, use_se=cfg.SE).to(local_rank)
     elif cfg.teacher == "iresnet18":
-        backbone_t = iresnet18(num_features=cfg.embedding_size, use_se=cfg.SE).to(
-            local_rank)
+        backbone_t = iresnet18(num_features=cfg.embedding_size, use_se=cfg.SE).to(local_rank)
+    elif cfg.teacher == "cvlface_ir101":
+        import sys
+
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        if repo_root not in sys.path:
+            sys.path.insert(0, repo_root)
+        from CVLface.cvlface.general_utils.huggingface_model_utils import load_model_by_repo_id
+
+        repo_id = getattr(cfg, "teacher_repo_id", "minchul/cvlface_adaface_ir101_webface12m")
+        cache_dir = os.path.expanduser(
+            getattr(cfg, "teacher_cache", "~/.cvlface_cache/minchul/cvlface_adaface_ir101_webface12m")
+        )
+        hf_token = os.environ.get("HF_TOKEN", None)
+        backbone_t = load_model_by_repo_id(repo_id, cache_dir, HF_TOKEN=hf_token).to(local_rank)
+    else:
+        logging.info("create teacher failed!")
+        exit()
     # Student model
     if cfg.network== "mobilefacenet":
         backbone = MobileFaceNet(input_size=(112,112)).to(local_rank)
@@ -66,13 +90,14 @@ def main(args):
         backbone = None
         logging.info("create backbone failed!")
         exit()
-    try:
-        backbone_pth = os.path.join(cfg.pretrained_teacher_path)
-        backbone_t.load_state_dict(torch.load(backbone_pth, map_location=torch.device(local_rank)))
-        if rank == 0:
-            logging.info("teacher loaded successfully!")
-    except (FileNotFoundError, KeyError, IndexError, RuntimeError):
-        logging.info("teacher init, failed!")
+    if cfg.teacher in ["iresnet100", "iresnet50", "iresnet18"]:
+        try:
+            backbone_pth = os.path.join(cfg.pretrained_teacher_path)
+            backbone_t.load_state_dict(torch.load(backbone_pth, map_location=torch.device(local_rank)))
+            if rank == 0:
+                logging.info("teacher loaded successfully!")
+        except (FileNotFoundError, KeyError, IndexError, RuntimeError):
+            logging.info("teacher init, failed!")
 
     if cfg.global_step:
         try:
@@ -93,16 +118,43 @@ def main(args):
     backbone.train()
     # get header
     if cfg.loss == "ArcFace":
-        header = losses.AdaptiveAArcFace(in_features=cfg.embedding_size, out_features=cfg.num_classes, s=cfg.s, m=cfg.m,  adaptive_alpha=cfg.adaptive_alpha).to(local_rank)
+        header = losses.AdaptiveAArcFace(
+            in_features=cfg.embedding_size,
+            out_features=cfg.num_classes,
+            s=cfg.s,
+            m=cfg.m,
+            adaptive_weighted_alpha=cfg.adaptive_alpha,
+        ).to(local_rank)
     elif cfg.loss == "CosFace":
-        header = losses.AdaptiveACosFace(in_features=cfg.embedding_size, out_features=cfg.num_classes, s=cfg.s, m=cfg.m, adaptive_alpha=cfg.adaptive_alpha).to(
-            local_rank)
+        header = losses.AdaptiveACosFace(
+            in_features=cfg.embedding_size,
+            out_features=cfg.num_classes,
+            s=cfg.s,
+            m=cfg.m,
+            adaptive_weighted_alpha=cfg.adaptive_alpha,
+        ).to(local_rank)
+    elif cfg.loss == "AdaFace":
+        header = losses.AdaptiveAAdaFace(
+            in_features=cfg.embedding_size,
+            out_features=cfg.num_classes,
+            s=cfg.s,
+            m=cfg.m,
+            h=cfg.h,
+            t_alpha=cfg.t_alpha,
+            adaptive_weighted_alpha=cfg.adaptive_alpha,
+        ).to(local_rank)
     else:
         print("Header not implemented")
 
     header = DistributedDataParallel(
         module=header, broadcast_buffers=False, device_ids=[local_rank])
     header.eval()
+
+    writer = (
+        SummaryWriter(log_dir=os.path.join(cfg.output, "tb"), purge_step=cfg.global_step)
+        if rank == 0
+        else None
+    )
 
     opt_backbone = torch.optim.SGD(
         params=[{'params': backbone.parameters()}],
@@ -115,8 +167,16 @@ def main(args):
     criterion = CrossEntropyLoss()
 
     start_epoch = 0
-    total_step = int(len(trainset) / cfg.batch_size / world_size * cfg.num_epoch)
-    if rank == 0: logging.info("Total Step is: %d" % total_step)
+    steps_per_epoch = max(1, int(len(trainset) / cfg.batch_size / world_size))
+    total_step = int(steps_per_epoch * cfg.num_epoch)
+    eval_every_n_epoch = getattr(cfg, "eval_every_n_epoch", 1)
+    val_eval_every_n_epoch = getattr(cfg, "val_eval_every_n_epoch", 1)
+    eval_step_freq = max(1, steps_per_epoch * eval_every_n_epoch)
+    val_eval_step_freq = max(1, steps_per_epoch * val_eval_every_n_epoch)
+    if rank == 0:
+        logging.info("Total Step is: %d" % total_step)
+        logging.info("Steps per epoch: %d, eval every %d epochs => eval_step=%d" %
+                     (steps_per_epoch, eval_every_n_epoch, eval_step_freq))
 
     if cfg.global_step:
         rem_steps = (total_step - cfg.global_step)
@@ -132,12 +192,49 @@ def main(args):
 
         # ------------------------------------------------------------
 
-    callback_verification = CallBackVerification(cfg.eval_step, rank, cfg.val_targets, cfg.rec)
-    callback_logging = CallBackLogging(50, rank, total_step, cfg.batch_size, world_size, writer=None)
+    val_rec = getattr(cfg, "val_rec", cfg.rec)
+    callback_verification = CallBackVerification(val_eval_step_freq, rank, cfg.val_targets, val_rec, writer=writer)
+    callback_logging = CallBackLogging(50, rank, total_step, cfg.batch_size, world_size, writer=writer)
     callback_checkpoint = CallBackModelCheckpoint(rank, cfg.output)
+    callback_ijb = None
+    if getattr(cfg, "eval_ijb", False):
+        callback_ijb = CallBackIJB(
+            eval_step_freq,
+            rank,
+            getattr(cfg, "ijb_targets", []),
+            getattr(cfg, "ijb_root", "./dataset/facerec_val"),
+            device=torch.device(local_rank),
+            batch_size=getattr(cfg, "ijb_batch_size", 64),
+            num_workers=getattr(cfg, "ijb_num_workers", 4),
+            flip=getattr(cfg, "ijb_flip", True),
+            writer=writer,
+        )
+    callback_tinyface = None
+    if getattr(cfg, "eval_tinyface", False):
+        callback_tinyface = CallBackTinyFace(
+            eval_step_freq,
+            rank,
+            getattr(cfg, "tinyface_targets", []),
+            getattr(cfg, "tinyface_root", "./dataset/facerec_val"),
+            device=torch.device(local_rank),
+            batch_size=getattr(cfg, "tinyface_batch_size", 64),
+            num_workers=getattr(cfg, "tinyface_num_workers", 4),
+            flip=getattr(cfg, "tinyface_flip", True),
+            writer=writer,
+        )
 
     loss = AverageMeter()
     global_step = cfg.global_step
+
+    # Optional: run evaluation right after loading checkpoint
+    if getattr(cfg, "run_eval_at_start", False):
+        if callback_verification is not None:
+            callback_verification(global_step, backbone)
+        if callback_ijb is not None:
+            callback_ijb(global_step, backbone)
+        if callback_tinyface is not None:
+            callback_tinyface(global_step, backbone)
+
     for epoch in range(start_epoch, cfg.num_epoch):
         train_sampler.set_epoch(epoch)
         for _, (img, label) in enumerate(train_loader):
@@ -146,19 +243,37 @@ def main(args):
             label = label.cuda(local_rank, non_blocking=True)
             features = backbone(img)
             with torch.no_grad():
-                features_t=backbone_t(img)
-            thetas ,target_logit_mean, lma, cos_theta_tmp = header(F.normalize(features),F.normalize(features_t) , label)
-            loss_v= criterion(thetas, label)
+                features_t = backbone_t(img)
+
+            if cfg.loss == "AdaFace":
+                norms = torch.norm(features, p=2, dim=1)
+                thetas, target_logit_mean, lma, cos_theta_tmp = header(
+                    features, features_t, label, norms
+                )
+            else:
+                thetas, target_logit_mean, lma, cos_theta_tmp = header(
+                    F.normalize(features), F.normalize(features_t), label
+                )
+
+            loss_v = criterion(thetas, label)
             loss_v.backward()
             clip_grad_norm_(backbone.parameters(), max_norm=5, norm_type=2)
             opt_backbone.step()
             opt_backbone.zero_grad()
             loss.update(loss_v.item(), 1)
             callback_logging(global_step, loss, epoch ,target_logit_mean, lma, cos_theta_tmp)
+            if global_step > 100 and global_step % val_eval_step_freq == 0:
+                callback_checkpoint(global_step, backbone, header)
             callback_verification(global_step, backbone)
+            if callback_ijb is not None:
+                callback_ijb(global_step, backbone)
+            if callback_tinyface is not None:
+                callback_tinyface(global_step, backbone)
         scheduler_backbone.step()
         callback_checkpoint(global_step, backbone, header)
     callback_verification(-1, backbone)
+    if writer is not None:
+        writer.close()
     dist.destroy_process_group()
 
 

@@ -7,16 +7,19 @@ import torch
 
 from eval import verification
 from utils.utils_logging import AverageMeter
+from eval.ijb_evaluator import run_ijb_evaluation
+from eval.tinyface_evaluator import run_tinyface_evaluation
 
 
 class CallBackVerification(object):
-    def __init__(self, frequent, rank, val_targets, rec_prefix, image_size=(112, 112)):
+    def __init__(self, frequent, rank, val_targets, rec_prefix, image_size=(112, 112), writer=None):
         self.frequent: int = frequent
         self.rank: int = rank
         self.highest_acc: float = 0.0
         self.highest_acc_list: List[float] = [0.0] * len(val_targets)
         self.ver_list: List[object] = []
         self.ver_name_list: List[str] = []
+        self.writer = writer
         if self.rank == 0:
             self.init_dataset(val_targets=val_targets, data_dir=rec_prefix, image_size=image_size)
 
@@ -31,6 +34,11 @@ class CallBackVerification(object):
                 self.highest_acc_list[i] = acc2
             logging.info(
                 '[%s][%d]Accuracy-Highest: %1.5f' % (self.ver_name_list[i], global_step, self.highest_acc_list[i]))
+            if self.writer is not None:
+                prefix = f"val/{self.ver_name_list[i]}"
+                self.writer.add_scalar(f"{prefix}/XNorm", xnorm, global_step)
+                self.writer.add_scalar(f"{prefix}/Accuracy_Flip", acc2, global_step)
+                self.writer.add_scalar(f"{prefix}/Accuracy_Highest", self.highest_acc_list[i], global_step)
             results.append(acc2)
 
     def init_dataset(self, val_targets, data_dir, image_size):
@@ -80,8 +88,13 @@ class CallBackLogging(object):
                     time_total = time_now / ((global_step + 1) / self.total_step)
                 time_for_end = time_total - time_now
                 if self.writer is not None:
-                    self.writer.add_scalar('time_for_end', time_for_end, global_step)
-                    self.writer.add_scalar('loss', loss.avg, global_step)
+                    self.writer.add_scalar('train/time_for_end_hours', time_for_end, global_step)
+                    self.writer.add_scalar('train/loss', loss.avg, global_step)
+                    self.writer.add_scalar('train/target_logit_mean', target_logit_mean, global_step)
+                    self.writer.add_scalar('train/lma', lma, global_step)
+                    self.writer.add_scalar('train/cos_theta_tmp', cos_theta_tmp, global_step)
+                    self.writer.add_scalar('train/speed_samples_per_sec', speed_total, global_step)
+                    self.writer.add_scalar('train/epoch', epoch, global_step)
                 msg = "Speed %.2f samples/sec   Loss %.4f target_logit_mean %.4f lma %.4f  cos_theta_tmp %.4f  Epoch: %d   Global Step: %d   Required: %1.f hours" % (
                     speed_total, loss.avg, target_logit_mean, lma, cos_theta_tmp, epoch, global_step, time_for_end
                 )
@@ -102,3 +115,85 @@ class CallBackModelCheckpoint(object):
             torch.save(backbone.module.state_dict(), os.path.join(self.output, str(global_step)+ "backbone.pth"))
         if global_step > 100 and header is not None:
             torch.save(header.module.state_dict(), os.path.join(self.output, str(global_step)+ "header.pth"))
+
+
+class CallBackIJB(object):
+    """IJB-B/C evaluation using Arrow datasets (HuggingFace) and CVLface metrics."""
+
+    def __init__(self, frequent, rank, ijb_targets, ijb_root, device, batch_size=64, num_workers=4, flip=True, writer=None):
+        self.frequent = frequent
+        self.rank = rank
+        self.ijb_targets = ijb_targets
+        self.ijb_root = ijb_root
+        self.device = device
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+        self.flip = flip
+        self.writer = writer
+
+    def __call__(self, num_update, backbone: torch.nn.Module):
+        if self.rank != 0:
+            return
+        if num_update > 0 and num_update % self.frequent != 0 and num_update != -1:
+            return
+        backbone.eval()
+        with torch.no_grad():
+            for name in self.ijb_targets:
+                try:
+                    result = run_ijb_evaluation(
+                        backbone.module,
+                        dataset_root=self.ijb_root,
+                        dataset_name=name,
+                        device=self.device,
+                        batch_size=self.batch_size,
+                        num_workers=self.num_workers,
+                        flip=self.flip,
+                    )
+                    logging.info(f"[IJB][{name}] {result}")
+                    if self.writer is not None:
+                        for k, v in result.items():
+                            self.writer.add_scalar(f"IJB/{name}/{k}", v, num_update)
+                except Exception as e:
+                    logging.warning(f"IJB evaluation failed for {name}: {e}")
+        backbone.train()
+
+
+class CallBackTinyFace(object):
+    """TinyFace evaluation using Arrow datasets and CVLface metrics."""
+
+    def __init__(self, frequent, rank, targets, root, device, batch_size=64, num_workers=4, flip=True, writer=None):
+        self.frequent = frequent
+        self.rank = rank
+        self.targets = targets
+        self.root = root
+        self.device = device
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+        self.flip = flip
+        self.writer = writer
+
+    def __call__(self, num_update, backbone: torch.nn.Module):
+        if self.rank != 0:
+            return
+        if num_update > 0 and num_update % self.frequent != 0 and num_update != -1:
+            return
+        backbone.eval()
+        with torch.no_grad():
+            for name in self.targets:
+                try:
+                    result = run_tinyface_evaluation(
+                        backbone.module,
+                        dataset_root=self.root,
+                        dataset_name=name,
+                        device=self.device,
+                        batch_size=self.batch_size,
+                        num_workers=self.num_workers,
+                        flip=self.flip,
+                    )
+                    logging.info(f"[TinyFace][{name}] {result}")
+                    if self.writer is not None:
+                        for k, v in result.items():
+                            self.writer.add_scalar(f"TinyFace/{name}/{k}", v, num_update)
+                except Exception as e:
+                    logging.warning(f"TinyFace evaluation failed for {name}: {e}")
+        backbone.train()

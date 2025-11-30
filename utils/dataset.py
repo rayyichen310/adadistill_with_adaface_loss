@@ -3,8 +3,11 @@ import os
 import queue as Queue
 import threading
 
-import mxnet as mx
 import numpy as np
+# mxnet 1.6 expects np.bool alias on newer numpy; define for compatibility
+if not hasattr(np, "bool"):
+    np.bool = bool  # type: ignore[attr-defined]
+import mxnet as mx
 import torch
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
