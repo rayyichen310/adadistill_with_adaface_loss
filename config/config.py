@@ -26,6 +26,10 @@ config.s=64.0
 config.m=0.4
 config.h=0.333
 config.t_alpha=0.01
+# Geometry-aware KD margin (off by default)
+config.use_geom_margin = False  # 如果要結合 (1 - cos(student, teacher)) 調整 margin，改成 True
+config.geom_margin_w = 0.2      # 幾何項權重 w，建議 0.1~0.3
+config.geom_margin_k = 1.0      # 幾何項縮放 k，控制 (1 - cos) 的量級
 
 #AdaDistill configuration
 config.adaptive_alpha=True

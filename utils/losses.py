@@ -162,6 +162,9 @@ class AdaptiveAAdaFace(nn.Module):
         h=0.333,
         t_alpha=0.01,
         adaptive_weighted_alpha=True,
+        use_geom_margin=False,
+        geom_margin_w=0.2,
+        geom_margin_k=1.0,
     ):
         super(AdaptiveAAdaFace, self).__init__()
         self.in_features = in_features
@@ -177,6 +180,9 @@ class AdaptiveAAdaFace(nn.Module):
         self.eps = 1e-3
         self.register_buffer("batch_mean", torch.ones(1) * 20)
         self.register_buffer("batch_std", torch.ones(1) * 100)
+        self.use_geom_margin = use_geom_margin
+        self.geom_margin_w = geom_margin_w
+        self.geom_margin_k = geom_margin_k
 
     def forward(self, embeddings, embeddings_t, label, norms):
         embeddings = l2_norm(embeddings, axis=1)
@@ -204,6 +210,12 @@ class AdaptiveAAdaFace(nn.Module):
             self.batch_std = std * self.t_alpha + (1 - self.t_alpha) * self.batch_std
         margin_scaler = (safe_norms - self.batch_mean) / (self.batch_std + self.eps)
         margin_scaler = margin_scaler * self.h
+
+        # 可選的 geometry-aware 調整：與 teacher 差距越大，margin_scaler 增加
+        if self.use_geom_margin:
+            geom_term = (1.0 - cos_theta_tmp.view(-1, 1)) * self.geom_margin_k
+            margin_scaler = (1.0 - self.geom_margin_w) * margin_scaler + self.geom_margin_w * geom_term
+
         margin_scaler = torch.clamp(margin_scaler, -1, 1)
         batch_size = label.size(0)
         index = torch.arange(batch_size, device=label.device)

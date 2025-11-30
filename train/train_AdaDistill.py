@@ -152,6 +152,9 @@ def main(args):
             h=cfg.h,
             t_alpha=cfg.t_alpha,
             adaptive_weighted_alpha=cfg.adaptive_alpha,
+            use_geom_margin=getattr(cfg, "use_geom_margin", False),
+            geom_margin_w=getattr(cfg, "geom_margin_w", 0.2),
+            geom_margin_k=getattr(cfg, "geom_margin_k", 1.0),
         ).to(local_rank)
     else:
         print("Header not implemented")
