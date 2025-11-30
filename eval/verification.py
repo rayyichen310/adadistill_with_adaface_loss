@@ -28,8 +28,13 @@ import datetime
 import os
 import pickle
 
-import mxnet as mx
 import numpy as np
+
+# Compatibility shim for NumPy>=1.24 where np.bool was removed.
+if not hasattr(np, "bool"):
+    np.bool = bool  # type: ignore[attr-defined]
+
+import mxnet as mx
 import sklearn
 import torch
 from mxnet import ndarray as nd

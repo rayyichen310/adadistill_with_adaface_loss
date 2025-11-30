@@ -56,13 +56,24 @@ def main(args):
 
     # create model
     backbone_t = None
+    hf_teacher_defaults = {
+        "cvlface_ir101": (
+            "minchul/cvlface_adaface_ir101_webface12m",
+            "~/.cvlface_cache/minchul/cvlface_adaface_ir101_webface12m",
+        ),
+        "cvlface_ir50": (
+            "minchul/cvlface_adaface_ir50_webface4m",
+            "~/.cvlface_cache/minchul/cvlface_adaface_ir50_webface4m",
+        ),
+    }
+
     if cfg.teacher == "iresnet100":
         backbone_t = iresnet100(num_features=cfg.embedding_size, use_se=cfg.SE).to(local_rank)
     elif cfg.teacher == "iresnet50":
         backbone_t = iresnet50(num_features=cfg.embedding_size, use_se=cfg.SE).to(local_rank)
     elif cfg.teacher == "iresnet18":
         backbone_t = iresnet18(num_features=cfg.embedding_size, use_se=cfg.SE).to(local_rank)
-    elif cfg.teacher == "cvlface_ir101":
+    elif cfg.teacher in hf_teacher_defaults:
         import sys
 
         repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -70,10 +81,9 @@ def main(args):
             sys.path.insert(0, repo_root)
         from CVLface.cvlface.general_utils.huggingface_model_utils import load_model_by_repo_id
 
-        repo_id = getattr(cfg, "teacher_repo_id", "minchul/cvlface_adaface_ir101_webface12m")
-        cache_dir = os.path.expanduser(
-            getattr(cfg, "teacher_cache", "~/.cvlface_cache/minchul/cvlface_adaface_ir101_webface12m")
-        )
+        default_repo, default_cache = hf_teacher_defaults[cfg.teacher]
+        repo_id = getattr(cfg, "teacher_repo_id", default_repo)
+        cache_dir = os.path.expanduser(getattr(cfg, "teacher_cache", default_cache))
         hf_token = os.environ.get("HF_TOKEN", None)
         backbone_t = load_model_by_repo_id(repo_id, cache_dir, HF_TOKEN=hf_token).to(local_rank)
     else:

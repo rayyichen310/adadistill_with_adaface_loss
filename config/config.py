@@ -16,10 +16,10 @@ config.output = "output/AdaDistillref/" # train model output folder
 # teacher path / huggingface
 config.pretrained_teacher_path = "output/teacher/295672backbone.pth"
 config.pretrained_teacher_header_path = "output/teacher/295672header.pth" # teacher folder
-config.teacher_repo_id = "minchul/cvlface_adaface_ir101_webface12m"
-config.teacher_cache = "~/.cvlface_cache/minchul/cvlface_adaface_ir101_webface12m"
+config.teacher_repo_id = "minchul/cvlface_adaface_ir50_webface4m"
+config.teacher_cache = "~/.cvlface_cache/minchul/cvlface_adaface_ir50_webface4m"
 
-config.global_step=15163 # step to resume
+config.global_step=0 # step to resume
 
 # Margin-penalty loss configurations
 config.s=64.0
@@ -37,12 +37,12 @@ config.loss="AdaFace"  #  Option : ArcFace, CosFace, AdaFace, MLLoss
 
 # type of network to train [iresnet100 | iresnet50 | iresnet18 | mobilefacenet]
 config.network = "mobilefacenet"
-config.teacher = "cvlface_ir101"
+config.teacher = "cvlface_ir50"
 
 config.SE=False # SEModule
 
 # optional: run a validation pass right after loading checkpoint
-config.run_eval_at_start = True
+config.run_eval_at_start = False
 
 # evaluation cadence
 config.val_eval_every_n_epoch = 1  # lightweight val (lfw/cfp/agedb/...)
