@@ -108,6 +108,10 @@ config.m = 0.4
 config.h = 0.333
 config.t_alpha = 0.01
 config.adaptive_alpha = True
+# 可選：幾何 KD margin（student–teacher 差距越大，margin 越大）
+config.use_geom_margin = False   # True 開啟
+config.geom_margin_w = 0.2       # 幾何項權重
+config.geom_margin_k = 1.0       # 幾何項縮放
 
 # 學生網路
 config.network = "mobilefacenet"   # 或 iresnet50 / iresnet18
