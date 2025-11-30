@@ -183,18 +183,7 @@ python eval/run_full_eval.py \
 
 ---
 
-## 常見問題
 
-- **為什麼一開始就跑 IJB/TinyFace？**  
-  `config.run_eval_at_start = True` 時，會在訓練開始前先做一次驗證（包含 IJB/TinyFace），方便記錄 baseline。
-
-- **`cos_theta_tmp` 接近 0.8 正常嗎？**  
-  在 AdaFace + s=64, m=0.4 的設定下，訓練後期 cosθ 落在 0.7–0.85 很常見，重點是 loss 和驗證集 accuracy 是否持續改善。
-
-- **MXNet / NumPy 的相容性警告**  
-  專案在 `eval/verification.py` 中對 `np.bool` 做了 shim，以支援 NumPy >= 1.24；出現 FutureWarning 屬正常現象。
-
----
 
 ## 原始論文與授權
 
