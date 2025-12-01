@@ -229,6 +229,7 @@ class AdaptiveAAdaFace(nn.Module):
             mask = (cos_st < self.geom_margin_mask).float()
             geom_term = geom_raw * mask
             geom_delta = (geom_term - self.geom_margin_baseline).clamp(min=0.0)
+            geom_delta = geom_delta.view(-1)  # 展平为一维向量
 
             # 幾何加成的 warmup：前 geom_margin_warmup_epoch 逐步放大權重
             geom_w_eff = self.geom_margin_w
@@ -242,11 +243,15 @@ class AdaptiveAAdaFace(nn.Module):
             margin_scaler = margin_scaler_q
 
         margin_scaler = torch.clamp(margin_scaler, -1, 1)
+        margin_scaler = margin_scaler.view(-1)  # 确保是一维向量
         batch_size = label.size(0)
         index = torch.arange(batch_size, device=label.device)
         target_logit = cosine[index, label]
         theta = target_logit.acos()
         g_angular = self.m * margin_scaler * -1
+        # 确保 g_angular 是一维向量且长度匹配 theta
+        if g_angular.dim() > 1:
+            g_angular = g_angular.view(-1)
         theta_m = torch.clamp(theta + g_angular, min=self.eps, max=math.pi - self.eps)
         margin_final_logit = theta_m.cos()
         g_add = self.m + (self.m * margin_scaler)

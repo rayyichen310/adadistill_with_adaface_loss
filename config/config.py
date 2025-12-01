@@ -27,7 +27,7 @@ config.m=0.4
 config.h=0.333
 config.t_alpha=0.01
 # Geometry-aware KD margin (off by default)
-config.use_geom_margin = False  # 如果要結合 (1 - cos(student, teacher)) 調整 margin，改成 True
+config.use_geom_margin = True  # 如果要結合 (1 - cos(student, teacher)) 調整 margin，改成 True
 config.geom_margin_w = 0.3      # 幾何項權重 w，建議 0.1~0.3
 config.geom_margin_k = 1.0      # 幾何項縮放 k，控制 (1 - cos) 的量級
 config.geom_margin_mask = 0.8   # 只對 cos < mask 的樣本啟用幾何加成
@@ -60,7 +60,7 @@ config.eval_ijb = True
 config.ijb_root = "./dataset/facerec_val"
 config.ijb_targets = ["IJBB_gt_aligned", "IJBC_gt_aligned"]
 config.ijb_batch_size = 384
-config.ijb_num_workers = 14
+config.ijb_num_workers = 16
 config.ijb_flip = True
 
 # TinyFace evaluation configuration
@@ -68,7 +68,7 @@ config.eval_tinyface = True
 config.tinyface_root = "./dataset/facerec_val"
 config.tinyface_targets = ["tinyface_aligned_pad_0.1"]
 config.tinyface_batch_size = 384
-config.tinyface_num_workers = 14
+config.tinyface_num_workers = 16
 config.tinyface_flip = True
 
 

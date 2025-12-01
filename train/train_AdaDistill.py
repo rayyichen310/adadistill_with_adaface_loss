@@ -284,13 +284,18 @@ def main(args):
             opt_backbone.zero_grad()
             loss.update(loss_v.item(), 1)
             callback_logging(global_step, loss, epoch ,target_logit_mean, lma, cos_theta_tmp)
+            
+            # 只在需要时执行验证和保存
             if global_step > 100 and global_step % val_eval_step_freq == 0:
+                callback_verification(global_step, backbone)
                 callback_checkpoint(global_step, backbone, header)
-            callback_verification(global_step, backbone)
-            if callback_ijb is not None:
-                callback_ijb(global_step, backbone)
-            if callback_tinyface is not None:
-                callback_tinyface(global_step, backbone)
+            
+            # IJB 和 TinyFace 评估按照配置的频率执行
+            if global_step % eval_step_freq == 0:
+                if callback_ijb is not None:
+                    callback_ijb(global_step, backbone)
+                if callback_tinyface is not None:
+                    callback_tinyface(global_step, backbone)
         scheduler_backbone.step()
         callback_checkpoint(global_step, backbone, header)
     callback_verification(-1, backbone)
