@@ -50,7 +50,8 @@ class CallBackVerification(object):
                 self.ver_name_list.append(name)
 
     def __call__(self, num_update, backbone: torch.nn.Module):
-        if self.rank == 0 and ((num_update > 0 and num_update % self.frequent == 0) or num_update==-1 ):
+        # Frequency control is now handled in the training loop, not here
+        if self.rank == 0:
             backbone.eval()
             self.ver_test(backbone, num_update)
             backbone.train()
@@ -134,8 +135,7 @@ class CallBackIJB(object):
     def __call__(self, num_update, backbone: torch.nn.Module):
         if self.rank != 0:
             return
-        if num_update > 0 and num_update % self.frequent != 0 and num_update != -1:
-            return
+        # Frequency control is now handled in the training loop, not here
         backbone.eval()
         with torch.no_grad():
             for name in self.ijb_targets:
@@ -175,8 +175,7 @@ class CallBackTinyFace(object):
     def __call__(self, num_update, backbone: torch.nn.Module):
         if self.rank != 0:
             return
-        if num_update > 0 and num_update % self.frequent != 0 and num_update != -1:
-            return
+        # Frequency control is now handled in the training loop, not here
         backbone.eval()
         with torch.no_grad():
             for name in self.targets:
