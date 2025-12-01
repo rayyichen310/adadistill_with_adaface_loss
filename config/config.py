@@ -28,8 +28,11 @@ config.h=0.333
 config.t_alpha=0.01
 # Geometry-aware KD margin (off by default)
 config.use_geom_margin = False  # 如果要結合 (1 - cos(student, teacher)) 調整 margin，改成 True
-config.geom_margin_w = 0.2      # 幾何項權重 w，建議 0.1~0.3
-config.geom_margin_k = 2.0      # 幾何項縮放 k，控制 (1 - cos) 的量級
+config.geom_margin_w = 0.3      # 幾何項權重 w，建議 0.1~0.3
+config.geom_margin_k = 1.0      # 幾何項縮放 k，控制 (1 - cos) 的量級
+config.geom_margin_mask = 0.8   # 只對 cos < mask 的樣本啟用幾何加成
+config.geom_margin_baseline = 0.25  # geom 超過 baseline 的部分才加成
+config.geom_margin_warmup_epoch = 1  # 幾何項權重的 warmup epoch 數，0 表示不做 warmup
 
 #AdaDistill configuration
 config.adaptive_alpha=True
@@ -76,13 +79,19 @@ if config.dataset == "emoreIresNet":
     config.num_classes = 85742
     config.num_image = 5822653
     config.num_epoch =  26
-    config.warmup_epoch = -1
+    # Warmup: 前 warmup_epoch 個 epoch 平滑將 lr 拉到正常值
+    config.warmup_epoch = 1
     config.val_targets =  ["lfw", "cfp_fp", "cfp_ff", "agedb_30", "calfw", "cplfw", "vgg2_fp"]
     config.eval_step=5686
-    def lr_step_func(epoch):
-        return ((epoch + 1) / (4 + 1)) ** 2 if epoch < -1 else 0.1 ** len(
-            [m for m in [8, 14,20,25] if m - 1 <= epoch])  # [m for m in [8, 14,20,25] if m - 1 <= epoch])
-    config.lr_func = lr_step_func
+    def lr_step_emore(epoch: int):
+        # epoch 從 0 開始
+        if epoch < config.warmup_epoch:
+            # 用平滑二次函數暖機
+            return ((epoch + 1) / (config.warmup_epoch + 1)) ** 2
+        else:
+            milestones = [8, 14, 20, 25]
+            return 0.1 ** len([m for m in milestones if m - 1 <= epoch])
+    config.lr_func = lr_step_emore
 
 if config.dataset == "Idifface":
     config.rec = "./data/faces_emore"
@@ -95,10 +104,10 @@ if config.dataset == "Idifface":
     config.warmup_epoch = -1
     config.val_targets = ["lfw", "cfp_fp", "cfp_ff", "agedb_30", "calfw", "cplfw"]
     config.eval_step= 982 * 4
-    def lr_step_func(epoch):
+    def lr_step_idif(epoch: int):
         return ((epoch + 1) / (4 + 1)) ** 2 if epoch < config.warmup_epoch else 0.1 ** len(
             [m for m in [40, 48, 52] if m - 1 <= epoch])
-    config.lr_func = lr_step_func
+    config.lr_func = lr_step_idif
     config.sample = 50
 
 if config.dataset == "CASIA_WebFace":
@@ -110,7 +119,7 @@ if config.dataset == "CASIA_WebFace":
     config.warmup_epoch = -1
     config.val_targets = ["lfw", "cfp_fp", "cfp_ff", "agedb_30", "calfw", "cplfw"]
     config.eval_step= 3916
-    def lr_step_func(epoch):
+    def lr_step_casia(epoch: int):
         return ((epoch + 1) / (4 + 1)) ** 2 if epoch < config.warmup_epoch else 0.1 ** len(
             [m for m in [40, 48, 52] if m - 1 <= epoch])
-    config.lr_func = lr_step_func
+    config.lr_func = lr_step_casia

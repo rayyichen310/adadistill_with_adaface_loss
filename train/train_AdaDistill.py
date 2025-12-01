@@ -155,6 +155,9 @@ def main(args):
             use_geom_margin=getattr(cfg, "use_geom_margin", False),
             geom_margin_w=getattr(cfg, "geom_margin_w", 0.2),
             geom_margin_k=getattr(cfg, "geom_margin_k", 1.0),
+            geom_margin_mask=getattr(cfg, "geom_margin_mask", 0.8),
+            geom_margin_baseline=getattr(cfg, "geom_margin_baseline", 0.25),
+            geom_margin_warmup_epoch=getattr(cfg, "geom_margin_warmup_epoch", 0),
         ).to(local_rank)
     else:
         print("Header not implemented")
@@ -249,6 +252,12 @@ def main(args):
             callback_tinyface(global_step, backbone)
 
     for epoch in range(start_epoch, cfg.num_epoch):
+        # 更新幾何 margin 的 warmup epoch
+        if cfg.loss == "AdaFace":
+            if hasattr(header, "module") and hasattr(header.module, "set_epoch"):
+                header.module.set_epoch(epoch)
+            elif hasattr(header, "set_epoch"):
+                header.set_epoch(epoch)
         train_sampler.set_epoch(epoch)
         for _, (img, label) in enumerate(train_loader):
             global_step += 1

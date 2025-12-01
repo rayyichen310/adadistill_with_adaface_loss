@@ -165,6 +165,9 @@ class AdaptiveAAdaFace(nn.Module):
         use_geom_margin=False,
         geom_margin_w=0.2,
         geom_margin_k=1.0,
+        geom_margin_mask=0.8,
+        geom_margin_baseline=0.25,
+        geom_margin_warmup_epoch=0,
     ):
         super(AdaptiveAAdaFace, self).__init__()
         self.in_features = in_features
@@ -183,6 +186,13 @@ class AdaptiveAAdaFace(nn.Module):
         self.use_geom_margin = use_geom_margin
         self.geom_margin_w = geom_margin_w
         self.geom_margin_k = geom_margin_k
+        self.geom_margin_mask = geom_margin_mask
+        self.geom_margin_baseline = geom_margin_baseline
+        self.geom_margin_warmup_epoch = geom_margin_warmup_epoch
+        self.current_epoch = 0
+
+    def set_epoch(self, epoch: int):
+        self.current_epoch = epoch
 
     def forward(self, embeddings, embeddings_t, label, norms):
         embeddings = l2_norm(embeddings, axis=1)
@@ -208,13 +218,28 @@ class AdaptiveAAdaFace(nn.Module):
             std = safe_norms.std().detach()
             self.batch_mean = mean * self.t_alpha + (1 - self.t_alpha) * self.batch_mean
             self.batch_std = std * self.t_alpha + (1 - self.t_alpha) * self.batch_std
-        margin_scaler = (safe_norms - self.batch_mean) / (self.batch_std + self.eps)
-        margin_scaler = margin_scaler * self.h
+        # 品質項（AdaFace 的 norm-based scaler）
+        margin_scaler_q = (safe_norms - self.batch_mean) / (self.batch_std + self.eps)
+        margin_scaler_q = margin_scaler_q * self.h
 
-        # 可選的 geometry-aware 調整：與 teacher 差距越大，margin_scaler 增加
+        # 可選的 geometry-aware 加成：只對落後樣本增加 margin
         if self.use_geom_margin:
-            geom_term = (1.0 - cos_theta_tmp.view(-1, 1)) * self.geom_margin_k
-            margin_scaler = (1.0 - self.geom_margin_w) * margin_scaler + self.geom_margin_w * geom_term
+            cos_st = cos_theta_tmp.view(-1, 1)
+            geom_raw = ((1.0 - cos_st) * self.geom_margin_k).clamp(0.0, 1.0)
+            mask = (cos_st < self.geom_margin_mask).float()
+            geom_term = geom_raw * mask
+            geom_delta = (geom_term - self.geom_margin_baseline).clamp(min=0.0)
+
+            # 幾何加成的 warmup：前 geom_margin_warmup_epoch 逐步放大權重
+            geom_w_eff = self.geom_margin_w
+            if self.geom_margin_warmup_epoch > 0:
+                scale = (self.current_epoch + 1) / (self.geom_margin_warmup_epoch + 1)
+                scale = min(1.0, max(0.0, scale))
+                geom_w_eff = self.geom_margin_w * scale
+
+            margin_scaler = margin_scaler_q + geom_w_eff * geom_delta
+        else:
+            margin_scaler = margin_scaler_q
 
         margin_scaler = torch.clamp(margin_scaler, -1, 1)
         batch_size = label.size(0)
