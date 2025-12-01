@@ -11,7 +11,7 @@ config.batch_size = 384
 config.lr = 0.1
 
 # Saving path
-config.output = "output/AdaDistillref/" # train model output folder
+config.output = "output/AdaDistill_sync/" # train model output folder (changed from AdaDistillref)
 
 # teacher path / huggingface
 config.pretrained_teacher_path = "output/teacher/295672backbone.pth"
