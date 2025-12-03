@@ -293,7 +293,7 @@ def main(args):
                 callback_tinyface(global_step, backbone)
         scheduler_backbone.step()
         callback_checkpoint(global_step, backbone, header)
-    callback_verification(-1, backbone)
+    callback_verification(global_step, backbone)
     if writer is not None:
         writer.close()
     dist.destroy_process_group()

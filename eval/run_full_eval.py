@@ -27,6 +27,10 @@ REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
+WORKSPACE_ROOT = os.path.abspath(os.path.join(REPO_ROOT, ".."))
+if WORKSPACE_ROOT not in sys.path:
+    sys.path.insert(0, WORKSPACE_ROOT)
+
 from backbones.iresnet import iresnet100, iresnet50, iresnet18  # noqa: E402
 from backbones.mobilefacenet import MobileFaceNet  # noqa: E402
 from eval import verification  # noqa: E402
@@ -222,84 +226,107 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main():
-    args = parse_args()
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-    )
+def run_full_evaluation(
+    config: str,
+    checkpoint: str,
+    device: str,
+    val_data: Optional[str],
+    val_targets: Optional[List[str]],
+    val_batch_size: int,
+    ijb_root: Optional[str],
+    ijb_targets: Optional[List[str]],
+    ijb_batch_size: int,
+    ijb_num_workers: int,
+    ijb_flip: Optional[bool],
+    tinyface_root: Optional[str],
+    tinyface_targets: Optional[List[str]],
+    tinyface_batch_size: int,
+    tinyface_num_workers: int,
+    tinyface_flip: Optional[bool],
+    results_json: Optional[str] = None,
+) -> Dict[str, Dict[str, Dict[str, float]]]:
+    cfg = load_config(resolve_path(config))
 
-    cfg = load_config(resolve_path(args.config))
-
-    device = torch.device(args.device)
+    device_obj = torch.device(device)
     backbone = build_backbone(
         network=getattr(cfg, "network", "mobilefacenet"),
         embedding_size=getattr(cfg, "embedding_size", 512),
         use_se=getattr(cfg, "SE", False),
-    ).to(device)
+    ).to(device_obj)
 
-    checkpoint = resolve_path(args.checkpoint)
-    if not checkpoint or not os.path.exists(checkpoint):
+    checkpoint_path = resolve_path(checkpoint)
+    if not checkpoint_path or not os.path.exists(checkpoint_path):
         raise FileNotFoundError(f"Checkpoint not found: {checkpoint}")
-    load_backbone_weights(backbone, checkpoint, device)
+    load_backbone_weights(backbone, checkpoint_path, device_obj)
     backbone.eval()
 
-    val_dir = resolve_path(args.val_data or getattr(cfg, "val_rec", getattr(cfg, "rec", None)))
-    val_targets = args.val_targets or list(getattr(cfg, "val_targets", []))
+    val_dir = resolve_path(val_data or getattr(cfg, "val_rec", getattr(cfg, "rec", None)))
+    resolved_val_targets = val_targets or list(getattr(cfg, "val_targets", []))
 
-    ijb_root = resolve_path(args.ijb_root or getattr(cfg, "ijb_root", None))
-    ijb_targets = args.ijb_targets or list(getattr(cfg, "ijb_targets", []))
-    ijb_flip = args.ijb_flip
-    if ijb_flip is None:
-        ijb_flip = bool(getattr(cfg, "ijb_flip", True))
+    ijb_root_path = resolve_path(ijb_root or getattr(cfg, "ijb_root", None))
+    resolved_ijb_targets = ijb_targets or list(getattr(cfg, "ijb_targets", []))
+    ijb_flip_flag = ijb_flip
+    if ijb_flip_flag is None:
+        ijb_flip_flag = bool(getattr(cfg, "ijb_flip", True))
 
-    tinyface_root = resolve_path(args.tinyface_root or getattr(cfg, "tinyface_root", None))
-    tinyface_targets = args.tinyface_targets or list(getattr(cfg, "tinyface_targets", []))
-    tinyface_flip = args.tinyface_flip
-    if tinyface_flip is None:
-        tinyface_flip = bool(getattr(cfg, "tinyface_flip", True))
+    tinyface_root_path = resolve_path(tinyface_root or getattr(cfg, "tinyface_root", None))
+    resolved_tinyface_targets = tinyface_targets or list(getattr(cfg, "tinyface_targets", []))
+    tinyface_flip_flag = tinyface_flip
+    if tinyface_flip_flag is None:
+        tinyface_flip_flag = bool(getattr(cfg, "tinyface_flip", True))
 
     all_results: Dict[str, Dict[str, Dict[str, float]]] = {}
 
     if val_dir and os.path.isdir(val_dir):
         all_results["verification"] = evaluate_verification_sets(
             backbone=backbone,
-            device=device,
+            device=device_obj,
             data_dir=val_dir,
-            targets=val_targets,
-            batch_size=args.val_batch_size,
+            targets=resolved_val_targets,
+            batch_size=val_batch_size,
         )
     else:
         logging.warning("Verification data directory missing or invalid: %s", val_dir)
 
     all_results["ijb"] = evaluate_ijb(
         backbone=backbone,
-        device=device,
-        dataset_root=ijb_root,
-        targets=ijb_targets,
-        batch_size=args.ijb_batch_size,
-        num_workers=args.ijb_num_workers,
-        flip=ijb_flip,
+        device=device_obj,
+        dataset_root=ijb_root_path,
+        targets=resolved_ijb_targets,
+        batch_size=ijb_batch_size,
+        num_workers=ijb_num_workers,
+        flip=ijb_flip_flag,
     )
 
     all_results["tinyface"] = evaluate_tinyface(
         backbone=backbone,
-        device=device,
-        dataset_root=tinyface_root,
-        targets=tinyface_targets,
-        batch_size=args.tinyface_batch_size,
-        num_workers=args.tinyface_num_workers,
-        flip=tinyface_flip,
+        device=device_obj,
+        dataset_root=tinyface_root_path,
+        targets=resolved_tinyface_targets,
+        batch_size=tinyface_batch_size,
+        num_workers=tinyface_num_workers,
+        flip=tinyface_flip_flag,
     )
 
     logging.info("Evaluation complete.")
     logging.info(json.dumps(all_results, indent=2))
 
-    if args.results_json:
-        results_path = resolve_path(args.results_json)
+    if results_json:
+        results_path = resolve_path(results_json)
         with open(results_path, "w", encoding="utf-8") as fp:
             json.dump(all_results, fp, indent=2)
         logging.info("Saved metrics to %s", results_path)
+
+    return all_results
+
+
+def main():
+    args = parse_args()
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+    )
+    run_full_evaluation(**vars(args))
 
 
 if __name__ == "__main__":

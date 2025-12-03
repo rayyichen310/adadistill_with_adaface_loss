@@ -173,7 +173,7 @@ def main(args):
         scheduler_header.step()
 
         callback_checkpoint(global_step, backbone, header)
-    callback_verification(-1, backbone)
+    callback_verification(global_step, backbone)
 
     dist.destroy_process_group()
 

@@ -164,7 +164,7 @@ def main(args):
             callback_verification(global_step, backbone)
         scheduler_backbone.step()
         callback_checkpoint(global_step, backbone, None)
-    callback_verification(-1, backbone)
+    callback_verification(global_step, backbone)
 
     dist.destroy_process_group()
 
