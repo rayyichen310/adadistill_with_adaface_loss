@@ -1,140 +1,129 @@
-# AdaDistill: Adaptive Knowledge Distillation with AdaFace Loss
+# AdaDistill with AdaFace and Geometry-aware Margin
 
-This repository contains a PyTorch implementation of **AdaDistill** for deep face recognition, extended with **AdaFace Loss** and **Geometry-aware Margin**. It supports training with HuggingFace teacher models, multi-GPU training via `torchrun`, and comprehensive evaluation pipelines.
+A PyTorch implementation of **AdaDistill** for face recognition, extended with
+**AdaFace loss** and a **geometry-aware distillation margin** for more robust
+and efficient student–teacher alignment.
 
-## Key Features
+---
 
-### 1. AdaFace Integration
-Unlike standard distillation frameworks that typically use static margins (e.g., ArcFace, CosFace), this project integrates **AdaFace Loss**. 
-- **Mechanism**: AdaFace uses the feature norm as a proxy for image quality. It assigns higher angular margins to high-quality images and lower margins to low-quality/unrecognizable images.
-- **Benefit**: This prevents the student model from overfitting to noise or low-quality hard samples during distillation, ensuring that the transferred knowledge is robust and meaningful.
+## Quick Overview
 
-### 2. Geometry-aware Margin
-We introduce a novel **Geometry-aware Margin** mechanism to further refine the distillation process by leveraging the geometric relationship between the Student and the Teacher.
-- **Mechanism**: The loss dynamically calculates a penalty based on the angular alignment (cosine similarity) between the Student and Teacher embeddings. Specifically, if the Student-Teacher similarity is lower than the Teacher's confidence (Teacher-ClassCenter similarity), a penalty term is added to the margin.
-- **Benefit**: This imposes a stricter constraint on the Student when it is misaligned with the Teacher, effectively forcing the Student to align its feature space more closely with the Teacher's geometry and accelerating convergence.
+This repository extends **AdaDistill (ECCV 2024)** with:
 
-### 3. Other Features
-- **Adaptive Distillation**: Implements AdaDistill with adaptive distillation loss.
-- **HuggingFace Teacher Support**: Seamlessly load teacher models (e.g., `cvlface_adaface_ir50_webface4m`) from HuggingFace Hub.
-- **Optimized Training**: Includes fixes for training speed degradation and shape mismatch issues.
-- **Comprehensive Evaluation**: End-to-end evaluation on LFW, CFP-FP, AgeDB, CALFW, CPLFW, VGG2-FP, IJB-B/C, and TinyFace.
+- AdaFace-based adaptive margins using feature norm as a quality proxy
+- Geometry-aware distillation margin for improved student–teacher alignment
+- HuggingFace CVLFace teacher model support
+- End-to-end evaluation on standard and large-scale face recognition benchmarks
+
+---
+
+## What’s New in This Repo
+
+- **AdaFace-based distillation**  
+  Applies norm-based adaptive margins to reduce over-penalization of
+  low-quality samples during knowledge distillation.
+
+- **Geometry-aware margin**  
+  Adds an extra margin when the teacher is confident but the student is
+  geometrically misaligned.
+
+- **HuggingFace teacher support**  
+  Seamlessly loads CVLFace pretrained models from HuggingFace Hub.
+
+- **Comprehensive evaluation**  
+  Supports LFW, CFP-FP, AgeDB, CALFW, CPLFW, VGG2-FP, IJB-B/C, and TinyFace.
+
+---
 
 ## Installation
 
-1. **Create a Conda Environment** (Python 3.10 recommended):
-   ```bash
-   conda create -n adadistill python=3.10
-   conda activate adadistill
-   ```
-
-2. **Install PyTorch**:
-   Follow the [official instructions](https://pytorch.org/get-started/locally/) for your CUDA version. Example:
-4. **(Optional) Install CVLface**:
-   Required **only** for loading HuggingFace teacher models and running IJB/TinyFace evaluations. Standard verification (LFW, CFP, etc.) does **not** require this.
-   ```bash
-   # Follow instructions at https://github.com/mk-minchul/CVLface
-   # Or install if available in requirements
-   ```bash
-   pip install -r requirements/requirement.txt
-   ```
-
-4. **(Optional) Install CVLface**:
-   Required for loading HuggingFace teacher models and running IJB/TinyFace evaluations.
-   ```bash
-   # Follow instructions at https://github.com/mk-minchul/CVLface
-   # Or install if available in requirements
-   ```
-
-## Data Preparation
-
-### Directory Structure
-Ensure your dataset directory looks like this:
-
-```text
-dataset/
-├── faces_emore/              # Training Data (MS1MV2)
-│   ├── train.rec
-│   ├── train.idx
-│   ├── lfw.bin
-│   ├── cfp_fp.bin
-│   └── ...
-└── facerec_val/              # Evaluation Data (IJB, TinyFace)
-    ├── IJBB_gt_aligned/
-    ├── IJBC_gt_aligned/
-    └── tinyface_aligned_pad_0.1/
+```bash
+conda create -n adadistill python=3.10
+conda activate adadistill
+pip install -r requirements/requirement.txt
 ```
 
-### Training Data
-The default configuration uses **MS1MV2** in InsightFace `.rec` format. Place `train.rec` and `train.idx` in `dataset/faces_emore/`.
+---
 
-### Validation Data
-- **Standard Benchmarks**: Place `.bin` files (LFW, CFP-FP, AgeDB, etc.) in `dataset/faces_emore/`.
-- **IJB & TinyFace**: Place aligned images in `dataset/facerec_val/`.
+## Training
+
+Multi-GPU training (single node):
+
+```bash
+CUDA_VISIBLE_DEVICES=0,1 torchrun --standalone --nproc_per_node=2 \
+  train/train_AdaDistill.py
+```
+
+---
+
+## Evaluation
+
+Single checkpoint evaluation:
+
+```bash
+python eval/run_full_eval.py \
+  --checkpoint path/to/checkpoint.pth \
+  --config config/config.py
+```
+
+Batch evaluation:
+
+```bash
+python eval/run_batch_eval.py \
+  --checkpoint-dir output/AdaDistill \
+  --config config/config.py
+```
+
+---
+
+## Notes
+
+- CVLFace is required only for HuggingFace teachers and IJB/TinyFace evaluation.
+- Standard `.bin` verification (LFW, CFP, AgeDB) works without CVLFace.
+
+---
+
+## Detailed Documentation
+
+### AdaFace-based Adaptive Margin
+
+AdaFace uses the L2 norm of the embedding as a proxy for image quality.
+High-quality samples receive larger angular margins, while low-quality samples
+receive smaller margins, improving training stability.
+
+---
+
+### Geometry-aware Distillation Margin
+
+This repository introduces a geometry-aware margin that explicitly considers
+student–teacher alignment.
+
+For each sample:
+- Student–Teacher similarity: `cos(f_s, f_t)`
+- Teacher class confidence: `cos(w_y, f_t)`
+
+When the teacher is confident but the student is not yet well aligned, an
+additional margin penalty is applied, encouraging closer geometric alignment.
+
+---
 
 ## Configuration
 
-All configurations are managed in `config/config.py`. Key parameters include:
+All settings are managed in `config/config.py`.
 
-- **Dataset**: `config.dataset = "emoreIresNet"`
-- **Loss**: `config.loss = "AdaFace"` (Options: ArcFace, CosFace, AdaFace)
-- **Teacher**:
-  - `config.teacher = "cvlface_ir50"` (requires HuggingFace token)
-  - Or `config.teacher = "iresnet50"` for local models.
-- **Geometry-aware Margin**:
-  - `config.use_geom_margin = True`
-  - `config.geom_margin_k = 3.0`
+```python
+config.dataset = "emoreIresNet"
+config.loss = "AdaFace"
 
-## Usage
+config.use_geom_margin = True
+config.geom_margin_w = 1.0
+config.geom_margin_k = 3.0
+config.geom_margin_warmup_epoch = 1
 
-### Training
-
-**Single-Node Multi-GPU Training**:
-Use the provided script `run_AdaDistill.sh` which uses `torchrun`:
-
-```bash
-bash run_AdaDistill.sh
+config.teacher = "cvlface_ir50"  # or local pretrained teacher
 ```
 
-To customize GPU usage, edit the script:
-```bash
-export OMP_NUM_THREADS=4
-CUDA_VISIBLE_DEVICES=0,1 torchrun --standalone --nproc_per_node=2 train/train_AdaDistill.py
-```
-
-**Resume Training**:
-Set `config.global_step` in `config/config.py` to the step number you want to resume from (e.g., `212282`).
-
-### Evaluation
-
-**Single Checkpoint Evaluation**:
-```bash
-python eval/run_full_eval.py \
-  --checkpoint output/AdaDistill/your_model_backbone.pth \
-  --config config/config.py \
-  --val-data ./dataset/faces_emore \
-  --device cuda:0
-```
-
-**Batch Evaluation**:
-Evaluate all checkpoints in a directory and generate a CSV report:
-```bash
-python eval/run_batch_eval.py \
-  --config config/config.py \
-  --checkpoint-dir output/AdaDistill \
-  --checkpoint-suffix backbone.pth \
-  --save-json
-```
-
-## Troubleshooting & Recent Fixes
-
-Please refer to the following documents for detailed fix information:
-
-- **[FIXES_SUMMARY.md](FIXES_SUMMARY.md)**: Details on fixing the "Shape mismatch" error in loss calculation and handling missing `CVLface` dependencies.
-- **[TRAINING_SPEED_FIX.md](TRAINING_SPEED_FIX.md)**: Details on optimizing training speed by reducing the frequency of evaluation callbacks.
-
-**Common Issues:**
-- **Missing CVLface**: If you see import errors related to `CVLface`, either install the library or switch to a local teacher model in `config.py`.
+---
 
 ## Citation
 
@@ -150,6 +139,14 @@ If you use this code, please cite the original AdaDistill paper:
 }
 ```
 
+---
+
 ## License
 
-This project is released under the **Attribution-NonCommercial-ShareAlike 4.0 (CC BY-NC-SA 4.0)** license.
+This project is released under the  
+**Creative Commons Attribution-NonCommercial-ShareAlike 4.0 (CC BY-NC-SA 4.0)** license.
+
+- Non-commercial use only  
+- Attribution required  
+- Derivative works must use the same license
+
