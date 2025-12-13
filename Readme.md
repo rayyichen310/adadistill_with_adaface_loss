@@ -4,11 +4,20 @@ This repository contains a PyTorch implementation of **AdaDistill** for deep fac
 
 ## Key Features
 
+### 1. AdaFace Integration
+Unlike standard distillation frameworks that typically use static margins (e.g., ArcFace, CosFace), this project integrates **AdaFace Loss**. 
+- **Mechanism**: AdaFace uses the feature norm as a proxy for image quality. It assigns higher angular margins to high-quality images and lower margins to low-quality/unrecognizable images.
+- **Benefit**: This prevents the student model from overfitting to noise or low-quality hard samples during distillation, ensuring that the transferred knowledge is robust and meaningful.
+
+### 2. Geometry-aware Margin
+We introduce a novel **Geometry-aware Margin** mechanism to further refine the distillation process by leveraging the geometric relationship between the Student and the Teacher.
+- **Mechanism**: The loss dynamically calculates a penalty based on the angular alignment (cosine similarity) between the Student and Teacher embeddings. Specifically, if the Student-Teacher similarity is lower than the Teacher's confidence (Teacher-ClassCenter similarity), a penalty term is added to the margin.
+- **Benefit**: This imposes a stricter constraint on the Student when it is misaligned with the Teacher, effectively forcing the Student to align its feature space more closely with the Teacher's geometry and accelerating convergence.
+
+### 3. Other Features
 - **Adaptive Distillation**: Implements AdaDistill with adaptive distillation loss.
-- **AdaFace Integration**: Extends the original framework with AdaFace loss for better robustness.
-- **Geometry-aware Margin**: Introduces a geometry-aware margin mechanism to refine the distillation process based on student-teacher angular alignment.
-- **HuggingFace Teacher Support**: Seamlessly load teacher models (e.g., `cvlface_adaface_ir50_webface4m`) from HuggingFace Hub (requires `CVLface`).
-- **Optimized Training**: Includes fixes for training speed degradation and shape mismatch issues (see `TRAINING_SPEED_FIX.md` and `FIXES_SUMMARY.md`).
+- **HuggingFace Teacher Support**: Seamlessly load teacher models (e.g., `cvlface_adaface_ir50_webface4m`) from HuggingFace Hub.
+- **Optimized Training**: Includes fixes for training speed degradation and shape mismatch issues.
 - **Comprehensive Evaluation**: End-to-end evaluation on LFW, CFP-FP, AgeDB, CALFW, CPLFW, VGG2-FP, IJB-B/C, and TinyFace.
 
 ## Installation
@@ -31,7 +40,7 @@ This repository contains a PyTorch implementation of **AdaDistill** for deep fac
    ```
 
 4. **(Optional) Install CVLface**:
-   Required for loading HuggingFace teacher models and running IJB/TinyFace evaluations.
+   Required **only** for loading HuggingFace teacher models and running IJB/TinyFace evaluations. Standard verification (LFW, CFP, etc.) does **not** require this.
    ```bash
    # Follow instructions at https://github.com/mk-minchul/CVLface
    # Or install if available in requirements
