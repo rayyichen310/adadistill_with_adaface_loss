@@ -4,20 +4,12 @@ A PyTorch implementation of **AdaDistill** for face recognition, extended with
 **AdaFace loss** and a **geometry-aware distillation margin** for more robust
 and efficient student–teacher alignment.
 
----
 
-## Quick Overview
 
-This repository extends **AdaDistill (ECCV 2024)** with:
-
-- AdaFace-based adaptive margins using feature norm as a quality proxy
-- Geometry-aware distillation margin for improved student–teacher alignment
-- HuggingFace CVLFace teacher model support
-- End-to-end evaluation on standard and large-scale face recognition benchmarks
 
 ---
 
-## What’s New in This Repo
+## 1. What’s New in This Repo
 
 - **AdaFace-based distillation**  
   Applies norm-based adaptive margins to reduce over-penalization of
@@ -33,81 +25,112 @@ This repository extends **AdaDistill (ECCV 2024)** with:
 - **Comprehensive evaluation**  
   Supports LFW, CFP-FP, AgeDB, CALFW, CPLFW, VGG2-FP, IJB-B/C, and TinyFace.
 
+
+
+
 ---
 
-## Installation
+## 2. Key Contributions
+
+### 2.1 AdaFace-based Adaptive Margin
+
+AdaFace uses the **L2 norm of the embedding** as a proxy for image quality.
+
+- High-norm embeddings (high-quality samples) receive larger angular margins.
+- Low-norm embeddings (low-quality or ambiguous samples) receive smaller margins.
+
+This design prevents the student from overfitting to noisy or low-quality samples
+during distillation and encourages more robust feature learning.
+
+---
+
+### 2.2 Geometry-aware Distillation Margin
+
+In addition to norm-based adaptation, this repository introduces a
+**geometry-aware margin** for knowledge distillation.
+
+For each training sample, the following similarities are considered:
+
+- Student–Teacher similarity:  
+  `cos(f_s, f_t)`
+- Teacher confidence for the ground-truth class:  
+  `cos(w_y, f_t)`
+
+When the teacher is confident but the student embedding is still poorly aligned,
+an additional margin penalty is applied.
+
+This mechanism:
+
+- Emphasizes informative and learnable samples
+- Encourages the student feature space to match the teacher’s geometry
+- Avoids unnecessary penalties on already aligned samples
+
+---
+
+## 3. Features
+
+- Adaptive knowledge distillation based on AdaDistill
+- AdaFace loss with norm-based adaptive margins
+- Geometry-aware margin for student–teacher alignment
+- HuggingFace CVLFace teacher support
+- Multi-GPU training via `torchrun`
+- Comprehensive evaluation on standard and large-scale benchmarks
+
+---
+
+## 4. Installation
+
+### 4.1 Environment Setup
 
 ```bash
 conda create -n adadistill python=3.10
 conda activate adadistill
+```
+
+Install PyTorch according to your CUDA version.
+
+---
+
+### 4.2 Dependencies
+
+```bash
 pip install -r requirements/requirement.txt
 ```
 
 ---
 
-## Training
+### 4.3 Optional: CVLFace
 
-Multi-GPU training (single node):
+CVLFace is required for:
 
-```bash
-CUDA_VISIBLE_DEVICES=0,1 torchrun --standalone --nproc_per_node=2 \
-  train/train_AdaDistill.py
-```
+- Loading HuggingFace CVLFace teacher models
+- Running IJB-B/C and TinyFace evaluations
 
----
-
-## Evaluation
-
-Single checkpoint evaluation:
-
-```bash
-python eval/run_full_eval.py \
-  --checkpoint path/to/checkpoint.pth \
-  --config config/config.py
-```
-
-Batch evaluation:
-
-```bash
-python eval/run_batch_eval.py \
-  --checkpoint-dir output/AdaDistill \
-  --config config/config.py
-```
+Installation guide:  
+https://github.com/mk-minchul/CVLface
 
 ---
 
-## Notes
+## 5. Data Preparation
 
-- CVLFace is required only for HuggingFace teachers and IJB/TinyFace evaluation.
-- Standard `.bin` verification (LFW, CFP, AgeDB) works without CVLFace.
+### 5.1 Training Data
 
----
-
-## Detailed Documentation
-
-### AdaFace-based Adaptive Margin
-
-AdaFace uses the L2 norm of the embedding as a proxy for image quality.
-High-quality samples receive larger angular margins, while low-quality samples
-receive smaller margins, improving training stability.
+- Dataset: **MS1MV2**
+- Format: InsightFace `.rec` / `.idx`
+- Path: `dataset/faces_emore/`
 
 ---
 
-### Geometry-aware Distillation Margin
+### 5.2 Evaluation Data
 
-This repository introduces a geometry-aware margin that explicitly considers
-student–teacher alignment.
-
-For each sample:
-- Student–Teacher similarity: `cos(f_s, f_t)`
-- Teacher class confidence: `cos(w_y, f_t)`
-
-When the teacher is confident but the student is not yet well aligned, an
-additional margin penalty is applied, encouraging closer geometric alignment.
+- Standard benchmarks (`.bin`):  
+  LFW, CFP-FP, AgeDB, CALFW, CPLFW, VGG2-FP
+- Large-scale benchmarks:  
+  IJB-B, IJB-C, TinyFace (requires CVLFace)
 
 ---
 
-## Configuration
+## 6. Configuration
 
 All settings are managed in `config/config.py`.
 
@@ -120,12 +143,60 @@ config.geom_margin_w = 1.0
 config.geom_margin_k = 3.0
 config.geom_margin_warmup_epoch = 1
 
-config.teacher = "cvlface_ir50"  # or local pretrained teacher
+config.teacher = "cvlface_ir50"   # or local pretrained teacher
 ```
 
 ---
 
-## Citation
+## 7. Training
+
+Multi-GPU training (single node):
+
+```bash
+CUDA_VISIBLE_DEVICES=0,1 torchrun --standalone --nproc_per_node=2 \
+  train/train_AdaDistill.py
+```
+
+Resume training by setting `config.global_step` to the desired step.
+
+---
+
+## 8. Evaluation
+
+### 8.1 Single Checkpoint Evaluation
+
+```bash
+python eval/run_full_eval.py \
+  --checkpoint output/AdaDistill/your_model_backbone.pth \
+  --config config/config.py
+```
+
+---
+
+### 8.2 Batch Evaluation
+
+```bash
+python eval/run_batch_eval.py \
+  --checkpoint-dir output/AdaDistill \
+  --checkpoint-suffix backbone.pth \
+  --save-json
+```
+
+This generates CSV (and optional JSON) summaries for all checkpoints.
+
+---
+
+## 9. Troubleshooting
+
+- **FIXES_SUMMARY.md**  
+  Shape mismatch fixes and CVLFace dependency handling.
+
+- **TRAINING_SPEED_FIX.md**  
+  Training speed optimization by reducing evaluation frequency.
+
+---
+
+## 10. Citation
 
 If you use this code, please cite the original AdaDistill paper:
 
@@ -141,7 +212,7 @@ If you use this code, please cite the original AdaDistill paper:
 
 ---
 
-## License
+## 11. License
 
 This project is released under the  
 **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 (CC BY-NC-SA 4.0)** license.
@@ -149,4 +220,3 @@ This project is released under the
 - Non-commercial use only  
 - Attribution required  
 - Derivative works must use the same license
-
