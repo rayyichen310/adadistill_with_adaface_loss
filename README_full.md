@@ -102,7 +102,7 @@ Where:
 Our framework operates on two parallel paths during training (as shown in our presentation):
 
 1. **Path A: Center Update (Teacher Guidance)**
-   The class centers ($w$) are not static. They are updated using an **Exponential Moving Average (EMA)** guided by the teacher's features, ensuring the "standard answer" evolves to be more accurate.
+   The class centers ($w$) are not static. They are updated using an **Exponential Moving Average (EMA)** guided by the teacher's features ($f_t$), ensuring the "standard answer" evolves to be more accurate.
 
 2. **Path B: Margin Calculation (Student Learning)**
    The final margin for the student is a combination of two components:
@@ -114,7 +114,6 @@ Our framework operates on two parallel paths during training (as shown in our pr
    $$
    \text{margin\_scaler} \leftarrow \text{margin\_scaler} + w \cdot \text{Penalty}
    $$
-
 ---
 
 ## 6. When Does the Geometry-aware Margin Take Effect?
@@ -208,7 +207,6 @@ https://github.com/mk-minchul/CVLface
   IJB-B, IJB-C, TinyFace (requires CVLFace)
 
 ---
-
 ## 11. Experimental Results
 
 We conducted comprehensive evaluations on multiple benchmarks. Our method (**AdaDistill + AdaFace + Adaptive Geo**) consistently outperforms the baseline and standard distillation methods.
@@ -221,7 +219,7 @@ We conducted comprehensive evaluations on multiple benchmarks. Our method (**Ada
 | **Baseline (Student)** | 99.52 | 91.66 | 95.82 | 87.93 | 89.13 | 81.65 | 91.83 |
 | AdaDistill + ArcFace | 99.47 | 95.14 | **96.68** | 89.50 | 93.26 | 89.31 | 94.12 |
 | AdaDistill + AdaFace | 99.50 | **95.24** | 95.82 | 89.73 | 93.82 | 90.00 | 94.15 |
-| **Ours (Adaptive Geo)** | 99.50 | 95.10 | 96.20 | **90.22** | **93.98** | **90.33** | **94.37** |
+| **Ours (Adaptive Geo)** | **99.50** | 95.10 | 96.20 | **90.22** | **93.98** | **90.33** | **94.37** |
 
 > **Key Observation:** Our method achieves the highest performance on challenging datasets like **CP-LFW** (Pose) and **IJB-C** (Mixed Quality), verifying the effectiveness of the geometry-aware margin.
 
@@ -247,7 +245,6 @@ We compared our initial "Static Threshold" approach against the final "Adaptive"
 Contrary to the intuition that "bigger is better," we found that a mid-sized teacher (**IR-50**) produces better distillation results for a MobileFaceNet student compared to a massive teacher (**IR-101**).
 
 * **Reasoning:** The student model (MobileFaceNet) struggles to absorb the highly complex feature distribution learned by IR-101. IR-50 provides a more accessible learning target.
-
 ## 12. Configuration
 
 All settings are managed in `config/config.py`.
