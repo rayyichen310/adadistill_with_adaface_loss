@@ -13,8 +13,7 @@ and large-scale face recognition benchmarks.
 ## 1. Overview
 
 AdaDistill is an adaptive knowledge distillation framework designed for
-margin-based face recognition models.  
-This project extends the original AdaDistill method by:
+margin-based face recognition models. This project extends the original AdaDistill method by:
 
 1. Integrating **AdaFace loss** as the classification head.
 2. Introducing a **geometry-aware margin** that explicitly models the geometric
@@ -28,7 +27,7 @@ and final recognition performance.
 ## 2. Design Motivation
 
 Standard knowledge distillation methods typically align student and teacher
-features using distance-based losses (e.g., L2 or cosine loss).  
+features using distance-based losses (e.g., L2 or cosine loss).
 Such approaches treat all samples equally, regardless of:
 
 - Image quality
@@ -84,6 +83,7 @@ This design preserves the geometric structure imposed by margin-based losses
 and avoids interference between loss terms.
 
 ---
+
 ## 5. Methodology: Adaptive Geometry-Aware Margin
 
 ### 5.1 The Core Formula
@@ -101,13 +101,20 @@ Where:
 ### 5.2 The Unified Architecture
 Our framework operates on two parallel paths during training (as shown in our presentation):
 
-1.  **Path A: Center Update (Teacher Guidance)**
-    The class centers ($w$) are not static. They are updated using an Exponential Moving Average (EMA) guided by the teacher's features, ensuring the "standard answer" evolves to be more accurate.
+1. **Path A: Center Update (Teacher Guidance)**
+   The class centers ($w$) are not static. They are updated using an **Exponential Moving Average (EMA)** guided by the teacher's features, ensuring the "standard answer" evolves to be more accurate.
 
-2.  **Path B: Margin Calculation (Student Learning)**
-    The final margin for the student is a combination of two components:
-    - **Quality-aware Margin:** Derived from AdaFace (based on norm $||f_s||$).
-    - **Geometry-aware Margin:** The calculated $\text{Penalty}$ derived above.
+2. **Path B: Margin Calculation (Student Learning)**
+   The final margin for the student is a combination of two components:
+   - **Quality-aware Margin:** Derived from AdaFace (based on norm $||f_s||$).
+   - **Geometry-aware Margin:** The calculated $\text{Penalty}$ derived above.
+
+   The final margin scaler applied to the logits is updated as follows:
+
+   $$
+   \text{margin\_scaler} \leftarrow \text{margin\_scaler} + w \cdot \text{Penalty}
+   $$
+
 ---
 
 ## 6. When Does the Geometry-aware Margin Take Effect?
