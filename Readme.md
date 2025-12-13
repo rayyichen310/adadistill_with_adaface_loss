@@ -11,7 +11,20 @@ Unlike standard distillation frameworks that typically use static margins (e.g.,
 
 ### 2. Geometry-aware Margin
 We introduce a novel **Geometry-aware Margin** mechanism to further refine the distillation process by leveraging the geometric relationship between the Student and the Teacher.
+
 - **Mechanism**: The loss dynamically calculates a penalty based on the angular alignment (cosine similarity) between the Student and Teacher embeddings. Specifically, if the Student-Teacher similarity is lower than the Teacher's confidence (Teacher-ClassCenter similarity), a penalty term is added to the margin.
+
+  Let $S$ be the student embedding, $T$ be the teacher embedding, and $W_y$ be the teacher's class center for the ground truth class $y$.
+  The penalty term $\Delta_{geom}$ is defined as:
+
+  $$ \Delta_{geom} = k \cdot \cos(T, W_y) \cdot \max(0, \cos(T, W_y) - \cos(S, T)) $$
+
+  The final margin scaler $M$ is updated as:
+
+  $$ M = M_{AdaFace} + w \cdot \Delta_{geom} $$
+
+  where $k$ is a scaling factor (`config.geom_margin_k`) and $w$ is a warmup weight.
+
 - **Benefit**: This imposes a stricter constraint on the Student when it is misaligned with the Teacher, effectively forcing the Student to align its feature space more closely with the Teacher's geometry and accelerating convergence.
 
 ### 3. Other Features
