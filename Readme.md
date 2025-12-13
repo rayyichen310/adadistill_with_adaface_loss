@@ -4,13 +4,34 @@ A PyTorch implementation of **AdaDistill** for face recognition, extended with
 **AdaFace loss** and a **geometry-aware distillation margin** for more robust
 and efficient student–teacher alignment.
 
-
-
 This repository extends **AdaDistill (ECCV 2024)** with:
 - AdaFace-based quality-aware margin adaptation
 - A geometry-aware distillation margin guided by teacher confidence
 
+> 💡 **Note:** This is a project summary. For detailed implementation details, mathematical derivations, and full experiment logs, please refer to [**FULL_README.md**](./README_full.md).
 
+---
+
+
+## 🚀 Performance Highlights
+
+### 1. General Benchmarks (Quality & Mixed)
+Our method consistently outperforms the baseline and the strong ArcFace-based distillation alternative across varying difficulties.
+
+| Method | CP-LFW | IJB-C (1e-4) | IJB-C (1e-5) |
+| :--- | :---: | :---: | :---: |
+| Baseline MFN (Student) | 87.93 | 89.13 | 81.65 |
+| AdaDistill + ArcFace | 89.50 | 93.26 | 89.31 |
+| **Ours (Adaptive Geo)** | **90.22** | **93.98** | **90.33** |
+
+### 2. Low-Resolution Recognition (TinyFace)
+The geometry-aware margin proves significantly more effective in low-information scenarios.
+
+| Method | TinyFace (Rank-1) | TinyFace (Rank-5) |
+| :--- | :---: | :---: |
+| AdaDistill + ArcFace | 57.21 | 63.12 |
+| AdaDistill + AdaFace | 58.69 | 64.03 |
+| **Ours (Adaptive Geo)** | **59.31** | **64.43** |
 
 ---
 
@@ -29,7 +50,6 @@ This repository extends **AdaDistill (ECCV 2024)** with:
 
 - **Comprehensive evaluation**  
   Supports LFW, CFP-FP, AgeDB, CALFW, CPLFW, VGG2-FP, IJB-B/C, and TinyFace.
-
 
 
 
