@@ -98,6 +98,7 @@ Where:
 - $\cos_{st} = \cos(f_s, f_t)$: The cosine similarity between student and teacher embeddings (Alignment).
 - $\text{ReLU}$: Acts as a **gating mechanism**. The penalty is only applied when the student's alignment ($\cos_{st}$) is *worse* than the teacher's confidence ($\text{Conf}_t$).
 
+  
 ### 5.2 The Unified Architecture
 Our framework operates on two parallel paths during training (as shown in our presentation):
 
@@ -109,12 +110,12 @@ Our framework operates on two parallel paths during training (as shown in our pr
    - **Quality-aware Margin:** Derived from AdaFace (based on norm $||f_s||$).
    - **Geometry-aware Margin:** The calculated $\text{Penalty}$ derived above.
 
-   The final margin scaler applied to the logits is updated as follows:
+The final margin scaler applied to the logits is updated as follows:
 
-   $$
-   \text{margin\_scaler} \leftarrow \text{margin\_scaler} + w \cdot \text{Penalty}
-   $$
----
+$$
+m \leftarrow m + w \cdot \mathcal{P}
+$$
+
 
 ## 6. When Does the Geometry-aware Margin Take Effect?
 
