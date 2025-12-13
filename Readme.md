@@ -5,6 +5,10 @@ A PyTorch implementation of **AdaDistill** for face recognition, extended with
 and efficient student–teacher alignment.
 
 
+This repository extends **AdaDistill (ECCV 2024)** with:
+- AdaFace-based quality-aware margin adaptation
+- A geometry-aware distillation margin guided by teacher confidence
+
 
 
 ---
