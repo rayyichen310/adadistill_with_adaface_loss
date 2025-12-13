@@ -5,6 +5,7 @@ A PyTorch implementation of **AdaDistill** for face recognition, extended with
 and efficient student–teacher alignment.
 
 
+
 This repository extends **AdaDistill (ECCV 2024)** with:
 - AdaFace-based quality-aware margin adaptation
 - A geometry-aware distillation margin guided by teacher confidence
@@ -60,8 +61,8 @@ For each training sample, the following similarities are considered:
 - Teacher confidence for the ground-truth class:  
   `cos(w_y, f_t)`
 
-When the teacher is confident but the student embedding is still poorly aligned,
-an additional margin penalty is applied.
+When the teacher exhibits high class confidence but the student remains
+geometrically misaligned, an additional margin penalty is applied.
 
 This mechanism:
 
@@ -71,20 +72,11 @@ This mechanism:
 
 ---
 
-## 3. Features
 
-- Adaptive knowledge distillation based on AdaDistill
-- AdaFace loss with norm-based adaptive margins
-- Geometry-aware margin for student–teacher alignment
-- HuggingFace CVLFace teacher support
-- Multi-GPU training via `torchrun`
-- Comprehensive evaluation on standard and large-scale benchmarks
 
----
+## 3. Installation
 
-## 4. Installation
-
-### 4.1 Environment Setup
+### 3.1 Environment Setup
 
 ```bash
 conda create -n adadistill python=3.10
@@ -95,7 +87,7 @@ Install PyTorch according to your CUDA version.
 
 ---
 
-### 4.2 Dependencies
+### 3.2 Dependencies
 
 ```bash
 pip install -r requirements/requirement.txt
@@ -103,7 +95,7 @@ pip install -r requirements/requirement.txt
 
 ---
 
-### 4.3 Optional: CVLFace
+### 3.3 Optional: CVLFace
 
 CVLFace is required for:
 
@@ -115,9 +107,9 @@ https://github.com/mk-minchul/CVLface
 
 ---
 
-## 5. Data Preparation
+## 4. Data Preparation
 
-### 5.1 Training Data
+### 4.1 Training Data
 
 - Dataset: **MS1MV2**
 - Format: InsightFace `.rec` / `.idx`
@@ -125,7 +117,7 @@ https://github.com/mk-minchul/CVLface
 
 ---
 
-### 5.2 Evaluation Data
+### 4.2 Evaluation Data
 
 - Standard benchmarks (`.bin`):  
   LFW, CFP-FP, AgeDB, CALFW, CPLFW, VGG2-FP
@@ -134,7 +126,7 @@ https://github.com/mk-minchul/CVLface
 
 ---
 
-## 6. Configuration
+## 5. Configuration
 
 All settings are managed in `config/config.py`.
 
@@ -152,7 +144,7 @@ config.teacher = "cvlface_ir50"   # or local pretrained teacher
 
 ---
 
-## 7. Training
+## 6. Training
 
 Multi-GPU training (single node):
 
@@ -165,9 +157,9 @@ Resume training by setting `config.global_step` to the desired step.
 
 ---
 
-## 8. Evaluation
+## 7. Evaluation
 
-### 8.1 Single Checkpoint Evaluation
+### 7.1 Single Checkpoint Evaluation
 
 ```bash
 python eval/run_full_eval.py \
@@ -177,7 +169,7 @@ python eval/run_full_eval.py \
 
 ---
 
-### 8.2 Batch Evaluation
+### 7.2 Batch Evaluation
 
 ```bash
 python eval/run_batch_eval.py \
@@ -190,7 +182,7 @@ This generates CSV (and optional JSON) summaries for all checkpoints.
 
 ---
 
-## 9. Troubleshooting
+## 8. Troubleshooting
 
 - **FIXES_SUMMARY.md**  
   Shape mismatch fixes and CVLFace dependency handling.
@@ -200,7 +192,7 @@ This generates CSV (and optional JSON) summaries for all checkpoints.
 
 ---
 
-## 10. Citation
+## 9. Citation
 
 If you use this code, please cite the original AdaDistill paper:
 
@@ -216,7 +208,7 @@ If you use this code, please cite the original AdaDistill paper:
 
 ---
 
-## 11. License
+## 10. License
 
 This project is released under the  
 **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 (CC BY-NC-SA 4.0)** license.
