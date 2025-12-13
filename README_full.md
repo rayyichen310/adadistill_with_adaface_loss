@@ -116,6 +116,7 @@ $$
 m \leftarrow m + w \cdot \mathcal{P}
 $$
 
+<img width="2285" height="1164" alt="image" src="https://github.com/user-attachments/assets/aa5a582f-6e53-48a7-af97-648de8dc5a36" />
 
 ## 6. When Does the Geometry-aware Margin Take Effect?
 
@@ -217,12 +218,12 @@ We conducted comprehensive evaluations on multiple benchmarks. Our method (**Ada
 
 | Method | LFW | CFP-FP | AgeDB-30 | CP-LFW | IJB-C (1e-4) | IJB-C (1e-5) | Avg |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Baseline (Student)** | 99.52 | 91.66 | 95.82 | 87.93 | 89.13 | 81.65 | 91.83 |
+| Baseline (Student) | 99.52 | 91.66 | 95.82 | 87.93 | 89.13 | 81.65 | 91.83 |
 | AdaDistill + ArcFace | 99.47 | 95.14 | **96.68** | 89.50 | 93.26 | 89.31 | 94.12 |
 | AdaDistill + AdaFace | 99.50 | **95.24** | 95.82 | 89.73 | 93.82 | 90.00 | 94.15 |
 | **Ours (Adaptive Geo)** | **99.50** | 95.10 | 96.20 | **90.22** | **93.98** | **90.33** | **94.37** |
 
-> **Key Observation:** Our method achieves the highest performance on challenging datasets like **CP-LFW** (Pose) and **IJB-C** (Mixed Quality), verifying the effectiveness of the geometry-aware margin.
+> **Key Observation:** Our method achieves the highest performance on difficult datasets like **CP-LFW** (Pose) and **IJB-C** (Mixed Quality), verifying the effectiveness of the geometry-aware margin.
 
 ### 11.2 Low-Resolution Performance (TinyFace)
 The adaptive margin is particularly effective for low-quality images where standard distillation might fail.
@@ -317,8 +318,14 @@ If you use this code, please cite the original AdaDistill paper:
   author    = {Fadi Boutros and Vitomir {\v{S}}truc and Naser Damer},
   title     = {AdaDistill: Adaptive Knowledge Distillation for Deep Face Recognition},
   booktitle = {Computer Vision -- ECCV 2024},
-  month     = {October},
   year      = {2024}
+}
+
+@InProceedings{Kim_2022_CVPR,
+  author    = {Kim, Minchul and Jain, Anil K. and Liu, Xiaoming},
+  title     = {AdaFace: Quality Adaptive Margin for Face Recognition},
+  booktitle = {CVPR},
+  year      = {2022}
 }
 ```
 
