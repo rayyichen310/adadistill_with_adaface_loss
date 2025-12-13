@@ -8,7 +8,7 @@ This repository extends **AdaDistill (ECCV 2024)** with:
 - AdaFace-based quality-aware margin adaptation
 - A geometry-aware distillation margin guided by teacher confidence
 
-> 💡 **Note:** This is a project summary. For detailed implementation details, mathematical derivations, and full experiment logs, please refer to [**FULL_README.md**](./README_full.md).
+> 💡 **Note:** This is a project summary. For detailed implementation details,  please refer to [**FULL_README.md**](./README_full.md).
 
 ---
 
@@ -68,18 +68,19 @@ This design prevents the student from overfitting to noisy or low-quality sample
 during distillation and encourages more robust feature learning.
 
 ---
-
 ### 2.2 Geometry-aware Distillation Margin
 
-In addition to norm-based adaptation, this repository introduces a
-**geometry-aware margin** for knowledge distillation.
+In addition to norm-based adaptation, this repository introduces a **geometry-aware margin**. When the teacher is confident but the student is not aligned, we apply a dynamic penalty:
 
-For each training sample, the following similarities are considered:
+$$
+\text{Penalty} = \text{ReLU}(\text{Conf}_t - \cos_{st}) \cdot \text{Conf}_t
+$$
 
-- Student–Teacher similarity:  
-  `cos(f_s, f_t)`
-- Teacher confidence for the ground-truth class:  
-  `cos(w_y, f_t)`
+Where:
+- $\text{Conf}_t$: The teacher's confidence score for the ground-truth class.
+- $\cos_{st}$: The cosine similarity between the student's and the teacher's feature embeddings.
+- $\text{ReLU}$: Ensures the penalty is only applied when the student's alignment is lower than the teacher's confidence.
+
 
 When the teacher exhibits high class confidence but the student remains
 geometrically misaligned, an additional margin penalty is applied.
