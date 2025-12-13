@@ -82,8 +82,6 @@ Where:
 - $\text{ReLU}$: Ensures the penalty is only applied when the student's alignment is lower than the teacher's confidence.
 
 
-When the teacher exhibits high class confidence but the student remains
-geometrically misaligned, an additional margin penalty is applied.
 
 This mechanism:
 
