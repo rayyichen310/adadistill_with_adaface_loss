@@ -41,7 +41,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run evaluation on every checkpoint inside a directory.")
     default_device = "cuda" if torch.cuda.is_available() else "cpu"
     parser.add_argument("--config", default="config/config.py", help="Path to config file (default: config/config.py)")
-    parser.add_argument("--checkpoint-dir", default="output/AdaDistill", help="Directory containing *_backbone.pth files.")
+    parser.add_argument("--checkpoint-dir", default="output/AdaDistill", help="Directory containing checkpoints.")
+    parser.add_argument("--checkpoint-suffix", default="backbone.pth", help="Suffix of checkpoint files to look for (default: backbone.pth).")
     parser.add_argument("--device", default=default_device, help="Device to run evaluation on (e.g. cuda:0 or cpu).")
     parser.add_argument(
         "--report-dir",
@@ -81,13 +82,13 @@ def ensure_report_dir(path: Optional[str], checkpoint_dir: str) -> str:
     return report_dir
 
 
-def collect_checkpoints(directory: str) -> List[str]:
+def collect_checkpoints(directory: str, suffix: str) -> List[str]:
     if not os.path.isdir(directory):
         raise FileNotFoundError(f"Checkpoint directory not found: {directory}")
-    checkpoints = [os.path.join(directory, f) for f in os.listdir(directory) if f.endswith("backbone.pth")]
+    checkpoints = [os.path.join(directory, f) for f in os.listdir(directory) if f.endswith(suffix)]
     checkpoints.sort()
     if not checkpoints:
-        raise RuntimeError(f"No *_backbone.pth files found under {directory}")
+        raise RuntimeError(f"No *{suffix} files found under {directory}")
     return checkpoints
 
 
@@ -105,9 +106,9 @@ def main():
 
     checkpoint_dir = resolve_path(args.checkpoint_dir)
     report_dir = ensure_report_dir(resolve_path(args.report_dir) if args.report_dir else None, checkpoint_dir)
-    checkpoints = collect_checkpoints(checkpoint_dir)
+    checkpoints = collect_checkpoints(checkpoint_dir, args.checkpoint_suffix)
 
-    logging.info("Found %d checkpoints under %s", len(checkpoints), checkpoint_dir)
+    logging.info("Found %d checkpoints under %s with suffix %s", len(checkpoints), checkpoint_dir, args.checkpoint_suffix)
     for checkpoint in checkpoints:
         ckpt_name = os.path.splitext(os.path.basename(checkpoint))[0]
         logging.info("Evaluating %s", ckpt_name)

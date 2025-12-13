@@ -3,4 +3,4 @@ __pycache__/
 *header.pth
 dataset/
 # Ignore the old training output folder only. We will track other output folders (e.g. output/AdaDistill_sync/)
-output/AdaDistillref/
+# output/AdaDistillref/

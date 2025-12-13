@@ -225,22 +225,33 @@ class AdaptiveAAdaFace(nn.Module):
         # 可選的 geometry-aware 加成：只對落後樣本增加 margin
         if self.use_geom_margin:
             cos_st = cos_theta_tmp.view(-1, 1)
-            geom_raw = ((1.0 - cos_st) * self.geom_margin_k).clamp(0.0, 1.0)
-            mask = (cos_st < self.geom_margin_mask).float()
-            geom_term = geom_raw * mask
-            geom_delta = (geom_term - self.geom_margin_baseline).clamp(min=0.0)
+            
+            # 方案 C (Fully Adaptive) - Simplified Formula:
+            # Penalty = ReLU(Conf_t - cos_st) * Conf_t
+            # 只要 Student 跟 Teacher 的相似度 (cos_st) 低於 Teacher 的自信度 (lam)，就開始懲罰。
+            # 懲罰力道隨 Teacher 自信度 (lam) 增加。
+            
+            geom_delta = (lam - cos_st).clamp(min=0.0)
+            geom_delta = geom_delta * lam * self.geom_margin_k
+            
             geom_delta = geom_delta.view(-1)  # 展平为一维向量
 
             # 幾何加成的 warmup：前 geom_margin_warmup_epoch 逐步放大權重
             geom_w_eff = self.geom_margin_w
             if self.geom_margin_warmup_epoch > 0:
-                scale = (self.current_epoch + 1) / (self.geom_margin_warmup_epoch + 1)
+                scale = self.current_epoch / self.geom_margin_warmup_epoch
                 scale = min(1.0, max(0.0, scale))
                 geom_w_eff = self.geom_margin_w * scale
 
             margin_scaler = margin_scaler_q + geom_w_eff * geom_delta
+            
+            # 記錄幾何懲罰的統計值
+            self.last_geom_penalty = geom_delta.detach().mean()
+            self.last_geom_weighted = (geom_w_eff * geom_delta).detach().mean()
         else:
             margin_scaler = margin_scaler_q
+            self.last_geom_penalty = torch.tensor(0.0, device=embeddings.device)
+            self.last_geom_weighted = torch.tensor(0.0, device=embeddings.device)
 
         margin_scaler = torch.clamp(margin_scaler, -1, 1)
         margin_scaler = margin_scaler.view(-1)  # 确保是一维向量
@@ -258,7 +269,7 @@ class AdaptiveAAdaFace(nn.Module):
         margin_final_logit = margin_final_logit - g_add
         cosine[index, label] = margin_final_logit
         logits = cosine * self.s
-        return logits, margin_scaler.mean(), lam.mean(), cos_theta_tmp.mean()
+        return logits, margin_scaler.mean(), lam.mean(), cos_theta_tmp.mean(), self.last_geom_penalty, self.last_geom_weighted
 
 
 @torch.no_grad()

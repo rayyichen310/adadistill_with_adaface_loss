@@ -252,15 +252,31 @@ def main(args):
             callback_tinyface(global_step, backbone)
 
     for epoch in range(start_epoch, cfg.num_epoch):
-        # 更新幾何 margin 的 warmup epoch
-        if cfg.loss == "AdaFace":
-            if hasattr(header, "module") and hasattr(header.module, "set_epoch"):
-                header.module.set_epoch(epoch)
-            elif hasattr(header, "set_epoch"):
-                header.set_epoch(epoch)
         train_sampler.set_epoch(epoch)
-        for _, (img, label) in enumerate(train_loader):
+        steps_per_epoch_real = len(train_loader)
+        for batch_idx, (img, label) in enumerate(train_loader):
             global_step += 1
+            
+            # Update geometry margin warmup per step (Smooth transition)
+            if cfg.loss == "AdaFace":
+                current_epoch_float = epoch + batch_idx / steps_per_epoch_real
+                if hasattr(header, "module") and hasattr(header.module, "set_epoch"):
+                    header.module.set_epoch(current_epoch_float)
+                elif hasattr(header, "set_epoch"):
+                    header.set_epoch(current_epoch_float)
+            
+            # Update Learning Rate per step during warmup
+            if epoch < cfg.warmup_epoch:
+                # Calculate current epoch with float precision
+                current_epoch_float = epoch + batch_idx / steps_per_epoch_real
+                # Calculate LR factor using the same quadratic formula as in config.py
+                lr_factor = ((current_epoch_float + 1) / (cfg.warmup_epoch + 1)) ** 2
+                # Base LR calculation (cfg.lr / 512 * cfg.batch_size * world_size)
+                base_lr = cfg.lr / 512 * cfg.batch_size * world_size
+                current_lr = base_lr * lr_factor
+                for param_group in opt_backbone.param_groups:
+                    param_group['lr'] = current_lr
+
             img = img.cuda(local_rank, non_blocking=True)
             label = label.cuda(local_rank, non_blocking=True)
             features = backbone(img)
@@ -269,13 +285,15 @@ def main(args):
 
             if cfg.loss == "AdaFace":
                 norms = torch.norm(features, p=2, dim=1)
-                thetas, target_logit_mean, lma, cos_theta_tmp = header(
+                thetas, target_logit_mean, lma, cos_theta_tmp, geom_penalty, geom_weighted = header(
                     features, features_t, label, norms
                 )
             else:
                 thetas, target_logit_mean, lma, cos_theta_tmp = header(
                     F.normalize(features), F.normalize(features_t), label
                 )
+                geom_penalty = torch.tensor(0.0)
+                geom_weighted = torch.tensor(0.0)
 
             loss_v = criterion(thetas, label)
             loss_v.backward()
@@ -283,7 +301,7 @@ def main(args):
             opt_backbone.step()
             opt_backbone.zero_grad()
             loss.update(loss_v.item(), 1)
-            callback_logging(global_step, loss, epoch ,target_logit_mean, lma, cos_theta_tmp)
+            callback_logging(global_step, loss, epoch ,target_logit_mean, lma, cos_theta_tmp, geom_penalty, geom_weighted)
             
             # 只在需要时执行验证和保存
             if global_step > 100 and global_step % val_eval_step_freq == 0:

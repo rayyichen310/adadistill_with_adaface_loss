@@ -72,7 +72,7 @@ class CallBackLogging(object):
         self.init = False
         self.tic = 0
 
-    def __call__(self, global_step, loss: AverageMeter, epoch: int, target_logit_mean: float, lma:float, cos_theta_tmp:float):
+    def __call__(self, global_step, loss: AverageMeter, epoch: int, target_logit_mean: float, lma:float, cos_theta_tmp:float, geom_penalty:float=0.0, geom_weighted:float=0.0):
         if self.rank == 0 and global_step > 0 and global_step % self.frequent == 0:
             if self.init:
                 try:
@@ -94,10 +94,12 @@ class CallBackLogging(object):
                     self.writer.add_scalar('train/target_logit_mean', target_logit_mean, global_step)
                     self.writer.add_scalar('train/lma', lma, global_step)
                     self.writer.add_scalar('train/cos_theta_tmp', cos_theta_tmp, global_step)
+                    self.writer.add_scalar('train/geom_penalty', geom_penalty, global_step)
+                    self.writer.add_scalar('train/geom_weighted', geom_weighted, global_step)
                     self.writer.add_scalar('train/speed_samples_per_sec', speed_total, global_step)
                     self.writer.add_scalar('train/epoch', epoch, global_step)
-                msg = "Speed %.2f samples/sec   Loss %.4f target_logit_mean %.4f lma %.4f  cos_theta_tmp %.4f  Epoch: %d   Global Step: %d   Required: %1.f hours" % (
-                    speed_total, loss.avg, target_logit_mean, lma, cos_theta_tmp, epoch, global_step, time_for_end
+                msg = "Speed %.2f samples/sec   Loss %.4f target_logit_mean %.4f lma %.4f  cos_theta_tmp %.4f geom_penalty %.4f geom_weighted %.4f Epoch: %d   Global Step: %d   Required: %1.f hours" % (
+                    speed_total, loss.avg, target_logit_mean, lma, cos_theta_tmp, geom_penalty, geom_weighted, epoch, global_step, time_for_end
                 )
                 logging.info(msg)
                 loss.reset()

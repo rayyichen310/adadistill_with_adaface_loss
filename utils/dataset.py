@@ -13,6 +13,11 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 import cv2
 
+try:
+    cv2.setNumThreads(0)
+except:
+    pass
+
 from utils.rand_augment import RandAugment
 
 
@@ -85,9 +90,9 @@ class MXFaceDataset(Dataset):
              ])
         self.root_dir = root_dir
         self.local_rank = local_rank
-        path_imgrec = os.path.join(root_dir, 'train.rec')
-        path_imgidx = os.path.join(root_dir, 'train.idx')
-        self.imgrec = mx.recordio.MXIndexedRecordIO(path_imgidx, path_imgrec, 'r')
+        self.path_imgrec = os.path.join(root_dir, 'train.rec')
+        self.path_imgidx = os.path.join(root_dir, 'train.idx')
+        self.imgrec = mx.recordio.MXIndexedRecordIO(self.path_imgidx, self.path_imgrec, 'r')
         s = self.imgrec.read_idx(0)
         header, _ = mx.recordio.unpack(s)
         if header.flag > 0:
@@ -95,8 +100,12 @@ class MXFaceDataset(Dataset):
             self.imgidx = np.array(range(1, int(header.label[0])))
         else:
             self.imgidx = np.array(list(self.imgrec.keys))
+        # Close the handle to ensure fork safety (lazy init in __getitem__)
+        self.imgrec = None
 
     def __getitem__(self, index):
+        if self.imgrec is None:
+            self.imgrec = mx.recordio.MXIndexedRecordIO(self.path_imgidx, self.path_imgrec, 'r')
         idx = self.imgidx[index]
         s = self.imgrec.read_idx(idx)
         header, img = mx.recordio.unpack(s)
