@@ -134,7 +134,6 @@ Please refer to the following documents for detailed fix information:
 - **[TRAINING_SPEED_FIX.md](TRAINING_SPEED_FIX.md)**: Details on optimizing training speed by reducing the frequency of evaluation callbacks.
 
 **Common Issues:**
-- **NaN Loss**: Often caused by improper teacher initialization or high learning rates. Ensure your teacher model is loaded correctly.
 - **Missing CVLface**: If you see import errors related to `CVLface`, either install the library or switch to a local teacher model in `config.py`.
 
 ## Citation
