@@ -8,7 +8,7 @@ from datasets import load_from_disk
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
-from CVLface.cvlface.research.recognition.code.run_v1.evaluations.ijbbc.evaluate import evaluate
+from eval.ijb_evaluate_core import evaluate
 
 
 class IJBDataset(torch.utils.data.Dataset):

@@ -8,7 +8,7 @@ from datasets import load_from_disk
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
-from CVLface.cvlface.research.recognition.code.run_v1.evaluations.tinyface.evaluate import evaluate
+from eval.tinyface_evaluate_core import evaluate
 
 
 class TinyFaceDataset(torch.utils.data.Dataset):

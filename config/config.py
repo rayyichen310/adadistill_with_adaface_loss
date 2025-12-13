@@ -14,10 +14,10 @@ config.lr = 0.1
 config.output = "output/AdaDistill_sync/" # train model output folder (changed from AdaDistillref)
 
 # teacher path / huggingface
-config.pretrained_teacher_path = "output/teacher/295672backbone.pth"
-config.pretrained_teacher_header_path = "output/teacher/295672header.pth" # teacher folder
-config.teacher_repo_id = "minchul/cvlface_adaface_ir50_webface4m"
-config.teacher_cache = "~/.cvlface_cache/minchul/cvlface_adaface_ir50_webface4m"
+config.pretrained_teacher_path = "output/teacher/295672backbone.pth" # Ignored when using HF model
+config.pretrained_teacher_header_path = "output/teacher/295672header.pth" # Ignored when using HF model
+config.teacher_repo_id = ""
+config.teacher_cache = ""
 
 config.global_step=0 # step to resume
 
@@ -44,7 +44,7 @@ config.loss="AdaFace"  #  Option : ArcFace, CosFace, AdaFace, MLLoss
 
 # type of network to train [iresnet100 | iresnet50 | iresnet18 | mobilefacenet]
 config.network = "mobilefacenet"
-config.teacher = "cvlface_ir50"
+config.teacher = "cvlface_ir101"
 
 config.SE=False # SEModule
 

@@ -1,7 +1,11 @@
 import argparse
 import logging
 import os
+import sys
 import time
+
+# Add project root to sys.path to resolve local imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import torch
 import torch.distributed as dist
@@ -73,17 +77,26 @@ def main(args):
         backbone_t = iresnet50(num_features=cfg.embedding_size, use_se=cfg.SE).to(local_rank)
     elif cfg.teacher == "iresnet18":
         backbone_t = iresnet18(num_features=cfg.embedding_size, use_se=cfg.SE).to(local_rank)
-    elif cfg.teacher in hf_teacher_defaults:
-        import sys
+    elif (getattr(cfg, "teacher_repo_id", None) and str(cfg.teacher_repo_id).strip()) or cfg.teacher in hf_teacher_defaults:
+        from utils.huggingface_utils import load_model_by_repo_id
 
-        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        if repo_root not in sys.path:
-            sys.path.insert(0, repo_root)
-        from CVLface.cvlface.general_utils.huggingface_model_utils import load_model_by_repo_id
+        default_repo, default_cache = None, None
+        if cfg.teacher in hf_teacher_defaults:
+            default_repo, default_cache = hf_teacher_defaults[cfg.teacher]
 
-        default_repo, default_cache = hf_teacher_defaults[cfg.teacher]
-        repo_id = getattr(cfg, "teacher_repo_id", default_repo)
-        cache_dir = os.path.expanduser(getattr(cfg, "teacher_cache", default_cache))
+        repo_id = getattr(cfg, "teacher_repo_id", None)
+        if not repo_id or not str(repo_id).strip():
+            repo_id = default_repo
+        
+        cache_dir = getattr(cfg, "teacher_cache", None)
+        if not cache_dir or not str(cache_dir).strip():
+            if default_cache:
+                cache_dir = default_cache
+            else:
+                cache_dir = f"~/.cvlface_cache/{repo_id}"
+        
+        cache_dir = os.path.expanduser(cache_dir)
+
         hf_token = os.environ.get("HF_TOKEN", None)
         backbone_t = load_model_by_repo_id(repo_id, cache_dir, HF_TOKEN=hf_token).to(local_rank)
     else:
