@@ -114,17 +114,6 @@ pip install -r requirements/requirement.txt
 
 ---
 
-### 3.3 Optional: CVLFace
-
-CVLFace is required for:
-
-- Loading HuggingFace CVLFace teacher models
-- Running IJB-B/C and TinyFace evaluations
-
-Installation guide:  
-https://github.com/mk-minchul/CVLface
-
----
 
 ## 4. Data Preparation
 
