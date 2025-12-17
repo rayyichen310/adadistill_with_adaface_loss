@@ -101,6 +101,7 @@ class MXFaceDataset(Dataset):
         else:
             self.imgidx = np.array(list(self.imgrec.keys))
         # Close the handle to ensure fork safety (lazy init in __getitem__)
+        self.imgrec.close()
         self.imgrec = None
 
     def __getitem__(self, index):
