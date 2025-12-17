@@ -29,10 +29,10 @@ config.t_alpha=0.01
 # Geometry-aware KD margin (off by default)
 config.use_geom_margin = True  # 如果要結合 (1 - cos(student, teacher)) 調整 margin，改成 True
 config.geom_margin_w = 1.0      # 全局縮放因子 (Scale)，建議設為 1.0，讓模型自動決定
-config.geom_margin_k = 2.0      # 幾何項縮放 k，控制 (1 - cos) 的量級
+config.geom_margin_k = 3.0      # 幾何項縮放 k，控制 (1 - cos) 的量級
 # config.geom_margin_mask = 0.8   # (已棄用) 自動根據 Teacher 信心決定
 # config.geom_margin_baseline = 0.25  # (已棄用) 自動根據 Teacher 信心決定
-config.geom_margin_warmup_epoch =  4 # 幾何項權重的 warmup epoch 數，0 表示不做 warmup
+config.geom_margin_warmup_epoch = 1  # 幾何項權重的 warmup epoch 數，0 表示不做 warmup
 
 #AdaDistill configuration
 config.adaptive_alpha=True
